@@ -43,6 +43,20 @@ namespace UI
 	extern void ShowFirmwareUpdatePopup();
 	extern void ShowAxis(size_t axis, bool b, const char* axisLetter = nullptr);
 	extern void UpdateAxisPosition(size_t axis, float fval);
+	extern void UpdateAxisMachinePosition(size_t axis, float fval);
+#if CNC_UI
+	// Tool list for the CNC UI (tool number = index in RRF's tools array)
+	extern void SetToolPresent(size_t toolIndex, bool present);
+	extern void SetToolName(size_t toolIndex, const char *name);
+	extern void RemoveToolsFrom(size_t firstToolIndex);
+	extern void SetNextTool(int32_t tool);				// state.nextTool, -1 = none
+	extern void SetVolumeMounted(size_t volume, bool mounted);	// volumes[].mounted (JOB LIST SD tile)
+	extern void UpdateCncGlobal(const char *name, const char *data);	// global.cnc* (SYSTEM > SETTINGS)
+	extern void CncGlobalsArriving();					// start of an M409 K"global" reply
+	extern void CncGlobalsDone(bool complete);			// its end (false: out of buffers)
+	extern void CncTouchSeen(bool repeat);				// every touch, before it is processed
+	extern void CncTouchDone();							// and after
+#endif
 	extern void UpdateCurrentTemperature(size_t heater, float fval);
 	extern void UpdateHeaterStatus(const size_t heater, const OM::HeaterStatus status);
 	extern void ChangeStatus(OM::PrinterStatus oldStatus, OM::PrinterStatus newStatus);

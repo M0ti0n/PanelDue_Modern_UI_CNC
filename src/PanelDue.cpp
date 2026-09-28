@@ -264,6 +264,9 @@ enum ReceivedDataEvent
 	rcvOMKeyState,
 	rcvOMKeyTools,
 	rcvOMKeyVolumes,
+#if CNC_UI
+	rcvOMKeyGlobal,
+#endif
 
 	// Keys for boards response
 	rcvBoardsFirmwareName,
@@ -351,6 +354,9 @@ enum ReceivedDataEvent
 	rcvSeqsState,
 	rcvSeqsTools,
 	rcvSeqsVolumes,
+#if CNC_UI
+	rcvSeqsGlobal,
+#endif
 	rcvSeqsLiveJobLayer,		// not sequence numbers from RRF: used to schedule the extra live requests below
 	rcvSeqsLiveExtrusionRate,
 
@@ -362,8 +368,17 @@ enum ReceivedDataEvent
 	rcvSpindlesState,
 	rcvSpindlesTool,
 
+#if CNC_UI
+	// Keys for volumes response
+	rcvVolumesMounted,
+
+	// Keys for the global response: the CNC settings (sys/cnc-settings.g)
+	rcvCncGlobal,
+#endif
+
 	// Keys from state response
 	rcvStateCurrentTool,
+	rcvStateNextTool,
 	rcvStateMessageBox,
 	rcvStateMessageBoxAxisControls,
 	rcvStateMessageBoxMessage,
@@ -386,6 +401,7 @@ enum ReceivedDataEvent
 	rcvToolsExtruders,
 	rcvToolsFans,
 	rcvToolsHeaters,
+	rcvToolsName,
 	rcvToolsOffsets,
 	rcvToolsNumber,
 	rcvToolsSpindle,
@@ -508,6 +524,9 @@ static FieldTableEntry fieldTable[] =
 	{ rcvSeqsState,						"seqs:state" },
 	{ rcvSeqsTools,						"seqs:tools" },
 	{ rcvSeqsVolumes,					"seqs:volumes" },
+#if CNC_UI
+	{ rcvSeqsGlobal,					"seqs:global" },
+#endif
 
 	// M409 K"spindles" response
 	{ rcvSpindlesActive, 				"spindles^:active" },
@@ -517,8 +536,29 @@ static FieldTableEntry fieldTable[] =
 	{ rcvSpindlesState, 				"spindles^:state" },
 	{ rcvSpindlesTool,	 				"spindles^:tool" },
 
+#if CNC_UI
+	// M409 K"volumes" response
+	{ rcvVolumesMounted,				"volumes^:mounted" },
+
+	// M409 K"global" response: the CNC settings the panel writes to sys/cnc-settings.g
+	{ rcvCncGlobal,						"global:cncProbeMode" },
+	{ rcvCncGlobal,						"global:cncMeasureAfterChange" },
+	{ rcvCncGlobal,						"global:cncRememberTool" },
+	{ rcvCncGlobal,						"global:cncToolSetter" },
+	{ rcvCncGlobal,						"global:cncAuxVacuum" },
+	{ rcvCncGlobal,						"global:cncCustom1Label" },
+	{ rcvCncGlobal,						"global:cncCustom1Macro" },
+	{ rcvCncGlobal,						"global:cncCustom2Label" },
+	{ rcvCncGlobal,						"global:cncCustom2Macro" },
+	{ rcvCncGlobal,						"global:cncCustom3Label" },
+	{ rcvCncGlobal,						"global:cncCustom3Macro" },
+	{ rcvCncGlobal,						"global:cncCustom4Label" },
+	{ rcvCncGlobal,						"global:cncCustom4Macro" },
+#endif
+
 	// M409 K"state" response
 	{ rcvStateCurrentTool,				"state:currentTool" },
+	{ rcvStateNextTool,					"state:nextTool" },
 	{ rcvStateMessageBox,				"state:messageBox" },
 	{ rcvStateMessageBoxAxisControls,	"state:messageBox:axisControls" },
 	{ rcvStateMessageBoxMessage,		"state:messageBox:message" },
@@ -541,6 +581,7 @@ static FieldTableEntry fieldTable[] =
 	{ rcvToolsExtruders,				"tools^:extruders^" },
 	{ rcvToolsFans,						"tools^:fans^" },
 	{ rcvToolsHeaters,					"tools^:heaters^" },
+	{ rcvToolsName,						"tools^:name" },
 	{ rcvToolsNumber, 					"tools^:number" },
 	{ rcvToolsOffsets, 					"tools^:offsets^" },
 	{ rcvToolsSpindle, 					"tools^:spindle" },
@@ -655,6 +696,11 @@ static struct Seq {
 #if FETCH_VOLUMES
 	{ .event = rcvOMKeyVolumes, .seqid = rcvSeqsVolumes, .lastSeq = 0, .state = SeqStateInit, .key = "volumes", .flags = "vp" },
 #endif
+#if CNC_UI
+	// The CNC settings live on the machine as globals (sys/cnc-settings.g); asked for at connect
+	// and whenever a global changes
+	{ .event = rcvOMKeyGlobal, .seqid = rcvSeqsGlobal, .lastSeq = 0, .state = SeqStateInit, .key = "global", .flags = "v" },
+#endif
 };
 
 static uint32_t lastRegularExtrusionSample = 0;		// time the regular live request last delivered move.currentMove.extrusionRate
@@ -761,6 +807,20 @@ static void ResetSeqs()
 		seqs[i].state = SeqStateInit;
 	}
 }
+
+#if CNC_UI
+// SYSTEM > SETTINGS: ask for the machine's globals again (after writing cnc-settings.g)
+void CncRequestGlobals()
+{
+	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
+	{
+		if (seqs[i].event == rcvOMKeyGlobal && seqs[i].state == SeqStateOk)
+		{
+			seqs[i].state = SeqStateUpdate;
+		}
+	}
+}
+#endif
 
 // Return the host firmware features
 FirmwareFeatureMap GetFirmwareFeatures()
@@ -946,9 +1006,98 @@ void LandscapeDisplay(const bool withTouch)
 	}
 }
 
+#if CNC_UI
+// Physical panel pixel for a logical point drawn in orientation o. This mirrors what UTFT does:
+// SwapXY is done in software (setXY), the reversals either in software or in the controller's
+// address mode, which lands on the same physical pixel either way.
+static void LogicalToPhysical(DisplayOrientation o, uint16_t lx, uint16_t ly, uint16_t& hx, uint16_t& hy)
+{
+	if (o & SwapXY)
+	{
+		hx = (o & ReverseY) ? (DisplayX - 1) - ly : ly;
+		hy = (o & ReverseX) ? (DisplayY - 1) - lx : lx;
+	}
+	else
+	{
+		hx = (o & ReverseX) ? (DisplayX - 1) - lx : lx;
+		hy = (o & ReverseY) ? (DisplayY - 1) - ly : ly;
+	}
+}
+
+// Which way up the portrait screen is. If the picture is upside down on your panel,
+// build with -DCNC_PORTRAIT_FLIP=1 (a setting will replace this later).
+#ifndef CNC_PORTRAIT_FLIP
+# define CNC_PORTRAIT_FLIP	0
+#endif
+
+static DisplayOrientation PortraitOrientation()
+{
+	return static_cast<DisplayOrientation>(nvData.lcdOrientation ^ (CNC_PORTRAIT_FLIP ? (SwapXY | ReverseY) : (SwapXY | ReverseX)));
+}
+
+// Touch stays in its calibrated landscape orientation (the calibration is only valid there).
+// Convert a landscape touch point to the portrait coordinates the CNC UI draws in, using the
+// exact inverse of the portrait display transform, so touch and drawing can never disagree.
+static void LandscapeTouchToPortrait(uint16_t& x, uint16_t& y)
+{
+	uint16_t hx, hy;
+	LogicalToPhysical(nvData.lcdOrientation, x, y, hx, hy);
+	const DisplayOrientation p = PortraitOrientation();
+	// p always contains SwapXY: portrait x comes from the physical row, y from the physical column
+	x = (p & ReverseX) ? (DisplayY - 1) - hy : hy;
+	y = (p & ReverseY) ? (DisplayX - 1) - hx : hx;
+}
+#endif
+
+#if CNC_UI
+// Touch calibration from SYSTEM > SETTINGS. It runs in the native landscape orientation (as at the
+// first start); the portrait screen is redrawn afterwards. Nothing is drawn while it runs.
+void CncCalibrateTouch()
+{
+	DisplayField * const root = mgr.GetRoot();
+	mgr.SetRoot(nullptr);							// CalibrateTouch redraws the old root in landscape
+	LandscapeDisplay(false);
+
+	// The finger that pressed the tile may still be down, maybe close enough to the first spot to
+	// count as touching it: wait until the screen has not been touched for 150 ms
+	uint32_t lastTouched = SystemTick::GetTickCount();
+	for (;;)
+	{
+		uint16_t tx, ty;
+		bool repeat;
+		const uint32_t now = SystemTick::GetTickCount();
+		if (touch.read(tx, ty, repeat))
+		{
+			lastTouched = now;
+		}
+		else if (now - lastTouched >= 150)
+		{
+			break;
+		}
+	}
+
+	CalibrateTouch();
+	PortraitDisplay(false);
+	mgr.SetRoot(root);
+	mgr.Refresh(true);
+}
+
+// MIRROR DISPLAY / INVERT DISPLAY: the same orientation change as the Modern UI (the portrait
+// orientation follows from it), then touch calibration as there
+void CncFlipDisplay(bool invert)
+{
+	nvData.lcdOrientation = static_cast<DisplayOrientation>(nvData.lcdOrientation ^ (invert ? (ReverseX | ReverseY) : ReverseX));
+	CncCalibrateTouch();
+}
+#endif
+
 void PortraitDisplay(const bool withTouch)
 {
+#if CNC_UI
+	const DisplayOrientation portrait = PortraitOrientation();
+#else
 	DisplayOrientation portrait = static_cast<DisplayOrientation>(nvData.lcdOrientation ^ (SwapXY | ReverseX));
+#endif
 	lcd.fillScr(black);
 	lcd.setOrientation(portrait, IS_ER, true);
 	if (withTouch)
@@ -1156,6 +1305,12 @@ static void EndReceivedMessage()
 
 	if (currentRespSeq != nullptr)
 	{
+#if CNC_UI
+		if (currentRespSeq->event == rcvOMKeyGlobal)
+		{
+			UI::CncGlobalsDone(!outOfBuffers);			// SYSTEM > SETTINGS takes the values over
+		}
+#endif
 		currentRespSeq->state = outOfBuffers ? SeqStateError : SeqStateOk;
 		dbg("seq %s %d DONE\n", currentRespSeq->key, currentRespSeq->state);
 		currentRespSeq = nullptr;
@@ -1336,6 +1491,11 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 			case rcvOMKeyTools:
 				lastTool = -1;
 				break;
+#if CNC_UI
+			case rcvOMKeyGlobal:
+				UI::CncGlobalsArriving();			// the machine's settings follow (maybe none)
+				break;
+#endif
 			default:
 				break;
 			}
@@ -1728,6 +1888,16 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 		}
 		break;
 
+	case rcvMoveAxesMachinePosition:
+		{
+			float fval;
+			if (GetFloat(data, fval))
+			{
+				UI::UpdateAxisMachinePosition(indices[0], fval);
+			}
+		}
+		break;
+
 	case rcvMoveAxesVisible:
 		{
 			bool visible;
@@ -1870,6 +2040,9 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 	case rcvSeqsState:
 	case rcvSeqsTools:
 	case rcvSeqsVolumes:
+#if CNC_UI
+	case rcvSeqsGlobal:
+#endif
 		{
 			int32_t ival;
 
@@ -1966,7 +2139,35 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 		}
 		break;
 
+#if CNC_UI
+	case rcvVolumesMounted:
+		{
+			bool mounted;
+			if (GetBool(data, mounted))
+			{
+				UI::SetVolumeMounted(indices[0], mounted);	// JOB LIST: SD tile
+			}
+		}
+		break;
+
+	case rcvCncGlobal:
+		UI::UpdateCncGlobal(id.c_str() + 7, data);		// without "global:"
+		break;
+#endif
+
 	// State section
+	case rcvStateNextTool:
+#if CNC_UI
+		{
+			int32_t tool;
+			if (GetInteger(data, tool))
+			{
+				UI::SetNextTool(tool);				// ATC tile on JOB STATUS
+			}
+		}
+#endif
+		break;
+
 	case rcvStateCurrentTool:
 		if (status == OM::PrinterStatus::connecting)
 		{
@@ -2164,9 +2365,21 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 			for (size_t i = lastTool + 1; i < indices[0]; ++i)
 			{
 				OM::RemoveTool(i, false);
+#if CNC_UI
+				UI::SetToolPresent(i, false);		// gap in the tool numbers
+#endif
 			}
 			lastTool = indices[0];
+#if CNC_UI
+			UI::SetToolPresent(indices[0], true);
+#endif
 		}
+		break;
+
+	case rcvToolsName:
+#if CNC_UI
+		UI::SetToolName(indices[0], data);
+#endif
 		break;
 
 	case rcvToolsOffsets:
@@ -2574,6 +2787,9 @@ static void ProcessArrayEnd(const char id[], const size_t indices[])
 		if (strcasecmp(id, "tools^") == 0)
 		{
 			OM::RemoveTool(lastTool + 1, true);
+#if CNC_UI
+			UI::RemoveToolsFrom(lastTool + 1);			// tools deleted in RRF since the last list
+#endif
 			if (initialized)
 			{
 				UI::AllToolsSeen();
@@ -2795,6 +3011,12 @@ int main(void)
 		} while (SystemTick::GetTickCount() - now < 5000);		// hold it there for 5 seconds or until touched
 	}
 
+#if CNC_UI
+	// The CNC UI is portrait only. Touch calibration and the splash screen above run in the
+	// panel's native landscape orientation; from here on, drawing and touch use 480 x 800.
+	PortraitDisplay(false);		// display only: touch is converted in the main loop (LandscapeTouchToPortrait)
+#endif
+
 	mgr.Refresh(true);								// draw the screen for the first time
 	UI::UpdatePrintingFields();
 
@@ -2829,6 +3051,9 @@ int main(void)
 			EventStateRepeated = 2
 		} state;
 	} event = { 0, 0, TouchEvent::EventStateReleased };
+#if CNC_UI
+	bool wakeTouch = false;			// the touch that woke the dimmed screen: only wakes it (STOP excepted)
+#endif
 
 	for (;;)
 	{
@@ -2846,6 +3071,9 @@ int main(void)
 		// check for valid touch event
 		if (touch.read(x, y, repeat))
 		{
+#if CNC_UI
+			LandscapeTouchToPortrait(x, y);
+#endif
 			switch (event.state)
 			{
 			case TouchEvent::EventStateReleased:
@@ -2893,17 +3121,30 @@ int main(void)
 		}
 
 		// dim handling
-		if (UI::CanDimDisplay() &&
-		    SystemTick::GetTickCount() - lastActionTime >= DimDisplayTimeout &&
-		    ((nvData.displayDimmerType == DisplayDimmerType::always) ||
+#if CNC_UI
+		// SCREEN DIMMING on = dim only while the machine is idle (or off), never during a job
+		const bool dimAllowed = nvData.displayDimmerType != DisplayDimmerType::never
+								&& (status == OM::PrinterStatus::idle || status == OM::PrinterStatus::off);
+#else
+		const bool dimAllowed = (nvData.displayDimmerType == DisplayDimmerType::always) ||
 		     (nvData.displayDimmerType == DisplayDimmerType::onIdle &&
 		      (status == OM::PrinterStatus::idle ||
-		       status == OM::PrinterStatus::off))))
+		       status == OM::PrinterStatus::off));
+#endif
+		if (UI::CanDimDisplay() &&
+		    SystemTick::GetTickCount() - lastActionTime >= DimDisplayTimeout &&
+		    dimAllowed)
 		{
 			if (backlight->GetState() != BacklightStateDimmed)
 			{
 				dbg("dim brightness\n");
 				backlight->SetState(BacklightStateDimmed);
+#if CNC_UI
+				if (event.state != TouchEvent::EventStateReleased)
+				{
+					wakeTouch = true;					// dimmed under a held finger: it must not act on release / repeat
+				}
+#endif
 			}
 		}
 		else
@@ -2940,9 +3181,29 @@ int main(void)
 			case TouchEvent::EventStatePressed:
 			case TouchEvent::EventStateRepeated:
 				UI::OnButtonPressTimeout();
+#if CNC_UI
+				UI::CncTouchSeen(event.state == TouchEvent::EventStateRepeated);
+#endif
 
+#if CNC_UI
+				// A machine that moves: a tap on a dimmed screen could press a button the user
+				// cannot see. So it only wakes the screen, until the finger is lifted. STOP acts.
+				if (event.state == TouchEvent::EventStatePressed && backlight->GetState() == BacklightStateDimmed)
+				{
+					const ButtonPress outside = bp.IsValid() ? ButtonPress() : mgr.FindEventOutsidePopup(x, y);
+					const bool stop = (bp.IsValid() && bp.GetEvent() == evEmergencyStop)
+						|| (outside.IsValid() && outside.GetEvent() == evEmergencyStop);
+					wakeTouch = !stop;
+				}
+#endif
 				lastActionTime = SystemTick::GetTickCount();
 				backlight->SetState(BacklightStateNormal);
+#if CNC_UI
+				if (wakeTouch)
+				{
+					break;
+				}
+#endif
 
 				if (bp.IsValid())
 				{
@@ -2963,12 +3224,26 @@ int main(void)
 				break;
 
 			case TouchEvent::EventStateReleased:
+#if CNC_UI
+				if (wakeTouch)
+				{
+					wakeTouch = false;
+					UI::ProcessRelease(ButtonPress());	// nothing was pressed
+					break;
+				}
+#endif
 				UI::ProcessRelease(bp);
 				break;
 
 			default:
 				break;
 			}
+#if CNC_UI
+			if (event.state != TouchEvent::EventStateReleased)
+			{
+				UI::CncTouchDone();
+			}
+#endif
 		}
 
 		// refresh the display

@@ -803,6 +803,67 @@ namespace FileManager
 	{
 		gcodeFilesList.FirmwareFeaturesChanged();
 	}
+
+#if CNC_UI
+	size_t GetJobFileCount()
+	{
+		return jobFileIndex.Size();
+	}
+
+	const char * _ecv_array GetJobFile(size_t index)
+	{
+		return (index < jobFileIndex.Size()) ? jobFileIndex[index] : "";
+	}
+
+	bool IsJobListLoaded()
+	{
+		return gcodeFilesList.IsLoaded();
+	}
+
+	bool IsJobListInSubdir()
+	{
+		return gcodeFilesList.InSubdir();
+	}
+
+	unsigned int GetJobCardNumber()
+	{
+		return gcodeFilesList.GetCardNumber();
+	}
+
+	size_t GetMacroFileCount()
+	{
+		return macroFileIndex.Size();
+	}
+
+	const char * _ecv_array GetMacroFile(size_t index)
+	{
+		return (index < macroFileIndex.Size()) ? macroFileIndex[index] : "";
+	}
+
+	bool IsMacroListLoaded()
+	{
+		return macroFilesList.IsLoaded();
+	}
+
+	bool IsMacroListInSubdir()
+	{
+		return macroFilesList.InSubdir();
+	}
+
+	void RequestControlMacrosRoot()
+	{
+		macroFilesList.RequestControlMacrosPath(macrosRoot);
+	}
+
+	void FileSet::RequestControlMacrosPath(const char * _ecv_array path)
+	{
+		controlMacroScrollOffset = 0;
+		listLoaded = false;
+		ControlMacrosPageUpdated();
+		requestedPath.copy(path);
+		SetPending();
+	}
+#endif
 }		// end namespace
 
 // End

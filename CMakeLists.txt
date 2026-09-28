@@ -132,6 +132,24 @@ endif()
 
 set( DEVICE_FLAGS "${DEVICE_FLAGS} -DDEVICE=${DEVICE}" )
 
+# ---------------------------------------------------------------------------
+# CNC build: portrait UI for 800x480 panels only, one binary per machine type.
+#   cmake -DDEVICE=v3-7.0 -DMACHINE=mill
+# ---------------------------------------------------------------------------
+if ("${DEVICE}" MATCHES "4\\.3")
+	message(FATAL_ERROR "The CNC UI needs an 800x480 panel (5\" or 7\"). ${DEVICE} is 480x272.")
+endif()
+
+set( MACHINE "mill" CACHE STRING "Machine type: mill (routers use mill). laser and plasma are planned." )
+if ("${MACHINE}" STREQUAL "mill")
+	set( MACHINE_FLAGS "-DMACHINE_MILL=1" )
+	set( MACHINE_SOURCES src/UI/Cnc/CncUserInterface.cpp src/UI/Cnc/CncWidgets.cpp src/UI/Cnc/CncCommon.cpp src/UI/Cnc/CncControlPage.cpp src/UI/Cnc/CncWcsPage.cpp src/UI/Cnc/CncPopups.cpp src/UI/Cnc/CncToolsPage.cpp src/UI/Cnc/CncProbePage.cpp src/UI/Cnc/CncJobPage.cpp src/UI/Cnc/CncKeyboard.cpp src/UI/Cnc/CncSystemPage.cpp src/UI/Cnc/CncMacrosPage.cpp src/UI/Cnc/CncSettingsPage.cpp )
+else()
+	message(FATAL_ERROR "${MACHINE} is invalid. Supported: -DMACHINE=mill")
+endif()
+set( DEVICE_FLAGS "${DEVICE_FLAGS} -DCNC_UI=1 ${MACHINE_FLAGS}" )
+message( "CNC machine type: " ${MACHINE} )
+
 set( CMAKE_ASM_FLAGS "${BASIC_C_FLAGS} ${DEVICE_FLAGS} ${CMAKE_ASM_FLAGS}" )
 set( CMAKE_C_FLAGS "${BASIC_C_FLAGS} ${DEVICE_FLAGS} ${CMAKE_C_FLAGS}" )
 # Workaround for GCC 13/14 (Arm GNU Toolchain 13.x/14.x): libstdc++ now forward-declares 'struct array' in <utility>/<tuple>,
@@ -199,7 +217,7 @@ target_sources( paneldue.elf PRIVATE
 	src/UI/Display.cpp
 	src/UI/MessageLog.cpp
 	src/UI/Popup.cpp
-	src/UI/UserInterface.cpp
+	${MACHINE_SOURCES}
 	lib/base64/base64.c
 )
 
@@ -252,8 +270,18 @@ add_custom_target( bin ALL
 	DEPENDS paneldue.bin paneldue-logo.bin
 )
 
+# Copy with a descriptive name, e.g. paneldue_CNC_mill_v3-7.0.bin
+set( CNC_BIN_NAME "paneldue_CNC_${MACHINE}_${DEVICE}.bin" )
+add_custom_command( OUTPUT ${CNC_BIN_NAME}
+	DEPENDS paneldue.bin
+	COMMAND ${CMAKE_COMMAND} -E copy paneldue.bin ${CNC_BIN_NAME}
+)
+add_custom_target( cncbin ALL
+	DEPENDS ${CNC_BIN_NAME}
+)
+
 add_custom_target( print-device ALL
-	DEPENDS paneldue.bin paneldue-logo.bin
-	COMMAND echo "*** Build for PanelDueFirmware ${DEVICE} successfully finished ***"
+	DEPENDS paneldue.bin paneldue-logo.bin ${CNC_BIN_NAME}
+	COMMAND echo "*** Build for PanelDue CNC ${MACHINE} ${DEVICE} finished: ${CNC_BIN_NAME} ***"
 )
 

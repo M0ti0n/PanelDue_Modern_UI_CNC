@@ -51,6 +51,12 @@ namespace FileManager
 		bool NextCard();
 		bool SelectCard(unsigned int cardNum);
 		void FirmwareFeaturesChanged();
+#if CNC_UI
+		bool IsLoaded() const { return listLoaded; }
+		bool InSubdir() const { return IsInSubdir(); }
+		unsigned int GetCardNumber() const { return cardNumber; }
+		void RequestControlMacrosPath(const char * _ecv_array path);
+#endif
 		void DisplayStatusJobPage();
 		void ScrollStatusJobPage(int amount);
 		void RequestStatusJobSubdir(const char * _ecv_array dir);
@@ -101,6 +107,23 @@ namespace FileManager
 	bool SelectCard(unsigned int cardNum);
 	void SetNumVolumes(size_t n);
 	void FirmwareFeaturesChanged();
+
+#if CNC_UI
+	// CNC JOB LIST: direct access to the cached gcode listing (sorted, folders start with '*').
+	// The strings stay valid until the next listing arrives.
+	size_t GetJobFileCount();
+	const char * _ecv_array GetJobFile(size_t index);
+	bool IsJobListLoaded();
+	bool IsJobListInSubdir();
+	unsigned int GetJobCardNumber();
+
+	// CNC MACROS: the cached listing of the open macro folder
+	size_t GetMacroFileCount();
+	const char * _ecv_array GetMacroFile(size_t index);
+	bool IsMacroListLoaded();
+	bool IsMacroListInSubdir();
+	void RequestControlMacrosRoot();
+#endif
 }
 
 #endif /* FILEMANAGER_H_ */

@@ -33,6 +33,11 @@ extern void MirrorDisplay();
 extern void InvertDisplay();
 extern void LandscapeDisplay(const bool withTouch = true);
 extern void PortraitDisplay(const bool withTouch = true);
+#if CNC_UI
+extern void CncCalibrateTouch();				// SYSTEM > SETTINGS: calibrate in landscape, then redraw portrait
+extern void CncFlipDisplay(bool invert);		// MIRROR DISPLAY (false) / INVERT DISPLAY (true), then calibrate
+extern void CncRequestGlobals();				// ask for M409 K"global" again
+#endif
 extern void SetBaudRate(uint32_t rate);
 extern void SetBrightness(int percent);
 extern void DimDisplayNow();
