@@ -829,7 +829,10 @@ namespace CncPopup
 			infoCard->SetHeight(tileH);
 			infoCard->Show(true);
 			lineText[0].copy(question);
-			infoFields[0]->SetPosition(InfoX + 10, InfoY + (tileH - LineH) / 2);
+			// Centred across the tile, and 20 px above the middle of it
+			const PixelNumber mid = (tileH - LineH) / 2;
+			infoFields[0]->SetPositionAndWidth(InfoX + 10, InfoW - 20);
+			infoFields[0]->SetPosition(InfoX + 10, InfoY + ((mid > 20) ? mid - 20 : 0));
 			infoFields[0]->SetValue(lineText[0].c_str(), true);
 			infoFields[0]->Show(true);
 		}

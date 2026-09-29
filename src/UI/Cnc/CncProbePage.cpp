@@ -523,10 +523,10 @@ namespace CncProbe
 
 		// Labels
 		AddLabel(LabelY, GridX + 2, 150, "ORIGIN");
-		AddLabel(LabelY, ParX + 2, 140, "MODE");
+		AddLabel(LabelY, ParX + 2, 60, "MODE");						// 56 px of text: the mode name has the rest of the row
 		DisplayField::SetDefaultFont(glcd19x21);
 		DisplayField::SetDefaultColours(accent, PageBg);
-		modeLabel = new StaticTextField(LabelY, ParX + ParW - 120, 118, TextAlignment::Right, "");
+		modeLabel = new StaticTextField(LabelY, ParX + 62, ParW - 62, TextAlignment::Right, "");	// SEMI-AUTO is 112+ px: it was cut in 118
 		mgr.AddField(modeLabel);
 
 		// Origin picker
