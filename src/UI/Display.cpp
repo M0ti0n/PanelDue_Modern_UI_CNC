@@ -1432,10 +1432,11 @@ void ModernCard::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 	const PixelNumber right = left + width - 1;
 	const PixelNumber bottom = top + height - 1;
 	lcd.setColor(bcolour);
-	if (height <= 5)
+	if (height <= 5 || width <= 5)
 	{
-		// UTFT::fillRoundRect() draws nothing when the rectangle is 5 pixels high or less, which made the 3 px
-		// accent line under the top tabs invisible. Thin cards are plain bars anyway.
+		// UTFT::fillRoundRect() draws nothing when the rectangle is 5 pixels high or wide, or less, which made the 3 px
+		// accent line under the top tabs and the vertical accent lines (CONTROL, WCS, PROBE) invisible.
+		// Thin cards are plain bars anyway.
 		lcd.fillRect(left, top, right, bottom);
 		changed = false;
 		return;

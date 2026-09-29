@@ -81,6 +81,7 @@ namespace
 	constexpr PixelNumber WrapWidth = InfoW - 20;		// 390 px text width in the info tile
 	ChoiceHandler choiceHandler = nullptr;
 	ChoiceAllowed choiceAllowed = nullptr;
+	bool choiceInstant = false;							// a tap on a choice runs the handler at once
 	int handlerParam = 0;
 	size_t numChoices = 0;
 	size_t pendingChoice = 0;
@@ -257,6 +258,7 @@ namespace
 		titleCard->Show(true);
 		titleField->Show(true);
 
+		infoCard->SetHeight(InfoH);								// FormQuestion shortens it
 		infoCard->Show(false);
 		for (StaticTextField *f : infoFields)
 		{
@@ -270,6 +272,7 @@ namespace
 		}
 		numChoices = 0;
 		swatches = false;
+		choiceInstant = false;
 		selectedChoice = nullptr;
 		cancelHandler = nullptr;
 
@@ -681,7 +684,7 @@ namespace CncPopup
 	}
 
 	void Choose(const char *title, const char * const labels[], size_t n, size_t selected,
-					ChoiceAllowed allowed, ChoiceHandler onOk, int param)
+					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant)
 	{
 		ResetStandardPopup(title);
 		if (n > MaxChoices)
@@ -715,6 +718,7 @@ namespace CncPopup
 
 		choiceHandler = onOk;
 		choiceAllowed = allowed;
+		choiceInstant = instant;
 		confirmHandler = nullptr;
 		handlerParam = param;
 		OpenPopup(stdPopup, Mode::Choose);
@@ -758,13 +762,17 @@ namespace CncPopup
 		OpenPopup(stdPopup, Mode::Choose);
 	}
 
-	void Form(const char *title, const FormGroup groups[], size_t nGroups, FormHandler onOk, int param)
+	// question != nullptr (one group only): no label above the group; the answers sit at the bottom of the
+	// info area and the question is centred in a tile between the title and the answers
+	static void FormImpl(const char *title, const FormGroup groups[], size_t nGroups, FormHandler onOk, int param,
+							const char *question)
 	{
 		ResetStandardPopup(title);
 		if (nGroups > MaxFormGroups)
 		{
 			nGroups = MaxFormGroups;
 		}
+		const bool q = (question != nullptr && nGroups == 1);
 
 		// Height of the whole block, to centre it in the info area
 		PixelNumber blockH = 0;
@@ -772,13 +780,14 @@ namespace CncPopup
 		{
 			const size_t n = min<size_t>(groups[g].n, MaxFormItems);
 			const size_t rows = (n + FormItemsPerRow(n) - 1) / FormItemsPerRow(n);
-			blockH += FormLabelH + rows * FormBtnH + (rows - 1) * FormGapY;
+			blockH += (q ? 0 : FormLabelH) + rows * FormBtnH + (rows - 1) * FormGapY;
 			if (g + 1 < nGroups)
 			{
 				blockH += FormGroupGap;
 			}
 		}
-		PixelNumber y = InfoY + ((blockH < InfoH) ? (InfoH - blockH) / 2 : 0);
+		PixelNumber y = q ? InfoY + InfoH - blockH : InfoY + ((blockH < InfoH) ? (InfoH - blockH) / 2 : 0);
+		const PixelNumber answersTop = y;
 
 		for (size_t g = 0; g < nGroups; ++g)
 		{
@@ -787,10 +796,13 @@ namespace CncPopup
 			const size_t n = formGroups[g].n;
 			formSelected[g] = groups[g].selected & ~groups[g].disabled;
 
-			formLabels[g]->SetPosition(InfoX + 2, y);
-			formLabels[g]->SetValue(groups[g].label, true);
-			formLabels[g]->Show(true);
-			y += FormLabelH;
+			if (!q)
+			{
+				formLabels[g]->SetPosition(InfoX + 2, y);
+				formLabels[g]->SetValue(groups[g].label, true);
+				formLabels[g]->Show(true);
+				y += FormLabelH;
+			}
 
 			const size_t perRow = FormItemsPerRow(n);
 			const PixelNumber w = (InfoW - (perRow - 1) * FormGapX) / perRow;
@@ -810,6 +822,17 @@ namespace CncPopup
 			y += rows * FormBtnH + (rows - 1) * FormGapY + FormGroupGap;
 		}
 		formCount = nGroups;
+		if (q)
+		{
+			// Question tile from the info area top down to a gap above the answers, text centred in it
+			const PixelNumber tileH = answersTop - FormGroupGap - InfoY;
+			infoCard->SetHeight(tileH);
+			infoCard->Show(true);
+			lineText[0].copy(question);
+			infoFields[0]->SetPosition(InfoX + 10, InfoY + (tileH - LineH) / 2);
+			infoFields[0]->SetValue(lineText[0].c_str(), true);
+			infoFields[0]->Show(true);
+		}
 		UpdateFormOk();
 
 		formHandler = onOk;
@@ -817,6 +840,18 @@ namespace CncPopup
 		choiceHandler = nullptr;
 		handlerParam = param;
 		OpenPopup(stdPopup, Mode::Form);
+	}
+
+	void Form(const char *title, const FormGroup groups[], size_t nGroups, FormHandler onOk, int param)
+	{
+		FormImpl(title, groups, nGroups, onOk, param, nullptr);
+	}
+
+	void FormQuestion(const char *title, const char *question, const char * const answers[], size_t n,
+						FormHandler onOk, int param)
+	{
+		const FormGroup group = { "", answers, n, false, 0, 0, 0 };		// no default answer
+		FormImpl(title, &group, 1, onOk, param, question);
 	}
 
 	void Numpad(const NumpadSpec& s)
@@ -866,6 +901,14 @@ namespace CncPopup
 					return true;					// greyed choice: nothing happens
 				}
 				pendingChoice = i;
+				if (choiceInstant && mode == Mode::Choose && choiceHandler != nullptr)
+				{
+					const ChoiceHandler sh = choiceHandler;
+					const int param = handlerParam;
+					Close();							// before the handler, which may open another popup or leave the page
+					sh(param, i);
+					return true;
+				}
 				if (swatches)
 				{
 					ShowSwatchSelection();			// outline only: pressed would fill it with the accent

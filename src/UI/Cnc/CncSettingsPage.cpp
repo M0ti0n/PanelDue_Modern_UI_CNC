@@ -749,7 +749,7 @@ namespace
 			if (item >= MCustom1 && item <= MCustom3)
 			{
 				customSlot = item - MCustom1;
-				CncPopup::Choose(CustomTitles[customSlot], CustomLabels, ARRAY_SIZE(CustomLabels), CMacro, CustomAllowed, CustomChosen, (int)customSlot);
+				CncPopup::Choose(CustomTitles[customSlot], CustomLabels, ARRAY_SIZE(CustomLabels), CMacro, CustomAllowed, CustomChosen, (int)customSlot, true);
 			}
 			break;
 		}

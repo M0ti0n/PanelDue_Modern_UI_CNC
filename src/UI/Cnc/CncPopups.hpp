@@ -79,9 +79,11 @@ namespace CncPopup
 	bool CanShowPassive();						// nothing in use: a message that needs no answer may be shown
 	bool IsBlockingMessageOpen();				// a message whose answer the machine waits for
 
-	// Preset choice: title + n choice buttons (labels must be static), 'selected' starts highlighted
+	// Preset choice: title + n choice buttons (labels must be static), 'selected' starts highlighted.
+	// instant = the choices are actions (SETTINGS > CUSTOM n: MACRO / LABEL / CLEAR): a tap on a choice
+	// closes the popup and runs the handler at once, the green check is not needed.
 	void Choose(const char *title, const char * const labels[], size_t n, size_t selected,
-					ChoiceAllowed allowed, ChoiceHandler onOk, int param);
+					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant = false);
 	// Colour choice (ACCENT COLOR): n swatches, 4 per row, the selected one outlined ('colours' must be static)
 	void ChooseColour(const char *title, const Colour colours[], size_t n, size_t selected, ChoiceHandler onOk, int param);
 
@@ -102,6 +104,11 @@ namespace CncPopup
 	};
 	typedef void (*FormHandler)(int param, const uint16_t selected[]);
 	void Form(const char *title, const FormGroup groups[], size_t nGroups, FormHandler onOk, int param);
+
+	// A question (e.g. "IS T3 IN THE SPINDLE?") with its answer buttons: the question is centred in a
+	// tile under the title, the answers sit below it. One single-pick group, no answer selected yet.
+	void FormQuestion(const char *title, const char *question, const char * const answers[], size_t n,
+						FormHandler onOk, int param);
 
 	bool IsOpen();
 	void Close();

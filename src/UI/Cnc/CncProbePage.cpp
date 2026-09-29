@@ -3,7 +3,7 @@
  *
  * WCS > PROBE, portrait CNC UI (mock-ups pd_cnc_wcs_probe_*.svg):
  *
- *   ORIGIN               |  PARAMETERS                AUTO
+ *   ORIGIN               |  MODE                      AUTO
  *   [TL ][TC ][TR ]      |  [TIP Ø     ][CLEARANCE ]
  *   [ML ][MC ][MR ]      |  [SEARCH    ][Z DEPTH   ]
  *   [BL ][BC ][BR ]      |  [STOCK     ][STORE TO v]
@@ -523,7 +523,7 @@ namespace CncProbe
 
 		// Labels
 		AddLabel(LabelY, GridX + 2, 150, "ORIGIN");
-		AddLabel(LabelY, ParX + 2, 140, "PARAMETERS");
+		AddLabel(LabelY, ParX + 2, 140, "MODE");
 		DisplayField::SetDefaultFont(glcd19x21);
 		DisplayField::SetDefaultColours(accent, PageBg);
 		modeLabel = new StaticTextField(LabelY, ParX + ParW - 120, 118, TextAlignment::Right, "");

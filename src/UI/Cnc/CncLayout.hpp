@@ -167,7 +167,7 @@ namespace CncLayout
 		constexpr PixelNumber TileGap = 8;
 		constexpr PixelNumber AutoTileW = (ParW - TileGap) / 2;				// 113
 		constexpr PixelNumber AutoTileH = (PickBottom - GridY - 2 * TileGap) / 3;	// 76
-		constexpr PixelNumber RowTileH = 36, RowTileGap = 6;
+		constexpr PixelNumber RowTileH = 52, RowTileGap = 6;				// SEMI / MANUAL parameter list tiles
 		constexpr PixelNumber BottomY = 601, BottomH = ContentBottom - BottomY;	// 56
 		constexpr PixelNumber StatusW = 150;
 	}
