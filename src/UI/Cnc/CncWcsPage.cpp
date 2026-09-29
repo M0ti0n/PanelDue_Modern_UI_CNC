@@ -236,6 +236,7 @@ namespace
 			return;
 		}
 		SerialIo::Sendf("G10 L2 P%u %c%.3f\n", (unsigned int)(viewedWcs + 1), AxisLetters[axis], (double)value);
+		CncRequestWorkplaceOffsets();
 		MarkUnsaved();
 	}
 
@@ -267,6 +268,7 @@ namespace
 			return;
 		}
 		SerialIo::Sendf("G10 L2 P%d X0 Y0 Z0%s\n", wcs + 1, (numAxes > 3) ? " A0" : "");
+		CncRequestWorkplaceOffsets();
 		MarkUnsaved();
 	}
 
@@ -308,6 +310,7 @@ namespace
 		// Fold the offset step (RRF babystep) into the active WCS Z on the Duet, using its own current values
 		SerialIo::Sendf("G10 L2 P{move.workplaceNumber + 1} Z{move.axes[2].workplaceOffsets[move.workplaceNumber] + move.axes[2].babystep}\n");
 		SerialIo::Sendf("M290 R0 Z0\n");
+		CncRequestWorkplaceOffsets();
 		MarkUnsaved();
 	}
 
@@ -359,6 +362,7 @@ namespace
 			}
 		}
 		SerialIo::Sendf("%s\n", cmd.c_str());
+		CncRequestWorkplaceOffsets();
 		MarkUnsaved();
 	}
 
@@ -458,6 +462,7 @@ namespace
 			}
 		}
 		SerialIo::Sendf("%s\n", cmd.c_str());
+		CncRequestWorkplaceOffsets();
 		MarkUnsaved();
 	}
 

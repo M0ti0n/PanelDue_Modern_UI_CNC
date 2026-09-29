@@ -253,6 +253,9 @@ enum ReceivedDataEvent
 	rcvOMKeyLimits,
 	rcvOMKeyMove,
 	rcvOMKeyMoveExtruders,
+#if CNC_UI
+	rcvOMKeyMoveWorkplaceOffsets,
+#endif
 	rcvOMKeyLiveJobLayer,
 	rcvOMKeyLiveExtrusionRate,
 	rcvOMKeyNetwork,
@@ -484,6 +487,10 @@ static FieldTableEntry fieldTable[] =
 	{ rcvMoveAxesUserPosition,			"move:axes^:userPosition" },
 	{ rcvMoveAxesVisible, 				"move:axes^:visible" },
 	{ rcvMoveAxesWorkplaceOffsets, 		"move:axes^:workplaceOffsets^" },
+#if CNC_UI
+	// M409 K"move.axes[].workplaceOffsets" response: [axis][workplace]. The regular move request (flags vp) leaves the offsets out.
+	{ rcvMoveAxesWorkplaceOffsets, 		"move.axes[].workplaceOffsets^^" },
+#endif
 	{ rcvMoveCurrentExtrusionRate,		"move:currentMove:extrusionRate" },
 	{ rcvMoveCurrentRequestedSpeed,		"move:currentMove:requestedSpeed" },
 	{ rcvMoveCurrentTopSpeed,			"move:currentMove:topSpeed" },
@@ -654,6 +661,10 @@ static struct Seq {
 	// The extruder fields the modern UI shows (flow factor, pressure advance, filament diameter) are asked for separately
 	// without the 'p' flag, which may make RRF leave them out. Shares the move sequence number.
 	{ .event = rcvOMKeyMoveExtruders, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move.extruders", .flags = "vn" },
+#if CNC_UI
+	// The WCS offsets (G54..G59.3) for every axis; the 'p' flag of the regular move request drops them. Shares the move sequence number.
+	{ .event = rcvOMKeyMoveWorkplaceOffsets, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move.axes[].workplaceOffsets", .flags = "v" },
+#endif
 	// Single live values that the PRINTING page shows and that the 'p' flag in the regular live request may drop.
 	// They have no sequence number of their own; PollExtraLiveValues() sets them to SeqStateUpdate every few seconds while printing.
 	{ .event = rcvOMKeyLiveExtrusionRate, .seqid = rcvSeqsLiveExtrusionRate, .lastSeq = 0, .state = SeqStateInit, .key = "move.currentMove.extrusionRate", .flags = "" },
@@ -813,6 +824,20 @@ void CncRequestGlobals()
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
 	{
 		if (seqs[i].event == rcvOMKeyGlobal && seqs[i].state == SeqStateOk)
+		{
+			seqs[i].state = SeqStateUpdate;
+		}
+	}
+}
+#endif
+
+#if CNC_UI
+// The panel changed WCS offsets (G10): read them back so the boxes, COPY and SHIFT use what the machine has
+void CncRequestWorkplaceOffsets()
+{
+	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
+	{
+		if (seqs[i].event == rcvOMKeyMoveWorkplaceOffsets && seqs[i].state == SeqStateOk)
 		{
 			seqs[i].state = SeqStateUpdate;
 		}

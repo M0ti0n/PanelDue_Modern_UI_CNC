@@ -631,6 +631,7 @@ namespace UI
 			{
 				mgr.Press(bp, true);
 				SerialIo::Sendf("G10 L20 P{move.workplaceNumber + 1} %c0\n", AxisLetters[bp.GetIParam()]);
+				CncRequestWorkplaceOffsets();
 			}
 			break;
 
