@@ -208,8 +208,8 @@ void CncZeroButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 // CncSegmentButton
 // ---------------------------------------------------------------------------
 CncSegmentButton::CncSegmentButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph,
-									const char *left, const char *right, Colour pAccent, event_t e)
-	: SingleButton(py, px, pw), height(ph), leftText(left), rightText(right), accent(pAccent), rightActive(false)
+									const char *left, const char *right, Colour pAccent, event_t e, bool pStacked)
+	: SingleButton(py, px, pw), height(ph), leftText(left), rightText(right), accent(pAccent), rightActive(false), stacked(pStacked)
 {
 	SetEvent(e, 0);
 }
@@ -242,6 +242,7 @@ void CncSegmentButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 	const PixelNumber right = left + width - 1;
 	const PixelNumber bottom = top + height - 1;
 	const PixelNumber mid = left + width / 2;
+	const PixelNumber midY = top + height / 2;				// stacked: the line between the halves
 
 	lcd.setColor(pressed ? PressedBg : TileBg);
 	lcd.fillRoundRect(left, top, right, bottom);
@@ -251,7 +252,18 @@ void CncSegmentButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 
 	// Active half: accent fill (border colour when locked), inset 4 px
 	lcd.setColor(locked ? BorderCol : accent);
-	if (rightActive)
+	if (stacked)
+	{
+		if (rightActive)
+		{
+			lcd.fillRoundRect(left + 4, midY, right - 4, bottom - 4);		// bottom half
+		}
+		else
+		{
+			lcd.fillRoundRect(left + 4, top + 4, right - 4, midY);			// top half
+		}
+	}
+	else if (rightActive)
 	{
 		lcd.fillRoundRect(mid, top + 4, right - 4, bottom - 4);
 	}
@@ -263,8 +275,16 @@ void CncSegmentButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 	const Colour dark = UTFT::fromRGB(18, 22, 28);
 	const Colour idleText = locked ? BorderCol : TextColour;
 	const Colour activeText = locked ? GlyphIdle : dark;
-	PrintCentred(leftText, left + 4, mid, top, height, rightActive ? idleText : activeText);
-	PrintCentred(rightText, mid, right - 4, top, height, rightActive ? activeText : idleText);
+	if (stacked)
+	{
+		PrintCentred(leftText, left + 4, right - 4, top, height / 2, rightActive ? idleText : activeText);
+		PrintCentred(rightText, left + 4, right - 4, midY, height / 2, rightActive ? activeText : idleText);
+	}
+	else
+	{
+		PrintCentred(leftText, left + 4, mid, top, height, rightActive ? idleText : activeText);
+		PrintCentred(rightText, mid, right - 4, top, height, rightActive ? activeText : idleText);
+	}
 
 	changed = false;
 }

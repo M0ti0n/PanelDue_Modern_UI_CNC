@@ -65,13 +65,16 @@ namespace
 	// -----------------------------------------------------------------------
 	// Fields
 	// -----------------------------------------------------------------------
-	constexpr size_t DroAxes = 3;
-	const char AxisLetters[DroAxes] = { 'X', 'Y', 'Z' };
-	const char * const AxisNames[DroAxes] = { "X", "Y", "Z" };
+	constexpr size_t DroAxes = 4;						// X Y Z + A; the 4th row is shown only when the machine has 4 axes
+	const char AxisLetters[DroAxes] = { 'X', 'Y', 'Z', 'A' };
+	const char * const AxisNames[DroAxes] = { "X", "Y", "Z", "A" };
 
 	DisplayField *cncRoot = nullptr;
 	FloatField *droWork[DroAxes];
 	FloatField *droMachine[DroAxes];
+	StaticTextField *droLetter[DroAxes];
+	ModernCard *droWorkCard[DroAxes], *droMachCard[DroAxes];
+	bool droFourAxes = false;							// full DRO layout: 3 rows of 68 px or 4 rows of 50 px
 	StaticTextField *droTool;
 	String<8> droToolText;
 	IntegerField *droSpindle, *droFeed;
@@ -104,6 +107,36 @@ namespace
 	const PopupWindow *popupAtTouch = nullptr;	// popup shown when the last touch was processed
 	uint32_t infoTimeout = 0;
 
+	// Full DRO rows: 3 axes = 3 rows of 68 px, 4 axes = 4 rows of 50 px. Both end at the same y, so the
+	// T / S / F row and everything below stay where they are. Only the moving is done here; the caller
+	// redraws (mgr.Refresh(true)) when the layout changes while the DRO is shown.
+	void LayoutFullDro()
+	{
+		const PixelNumber bigH = 32, smallH = 21;		// glcd28x32 / glcd19x21 row heights
+		const PixelNumber h = droFourAxes ? DroRowH4 : DroRowH3;
+		const PixelNumber gap = droFourAxes ? DroGap4 : DroGap3;
+		for (size_t i = 0; i < DroAxes; ++i)
+		{
+			const PixelNumber y = DroRowsTop + i * (h + gap);
+			droLetter[i]->SetPosition(DroAxisLabelX, y + (h - bigH) / 2);
+			droWork[i]->SetPosition(DroWorkX + 6, y + (h - bigH) / 2);
+			droWorkCard[i]->SetPosition(DroWorkX, y);
+			droWorkCard[i]->SetHeight(h);
+			droMachine[i]->SetPosition(DroMachX + 6, y + (h - smallH) / 2);
+			droMachCard[i]->SetPosition(DroMachX, y);
+			droMachCard[i]->SetHeight(h);
+			zeroButtons[i]->SetPosition(DroZeroX, y);
+			zeroButtons[i]->SetHeight(h);
+		}
+		const bool a = droFourAxes;
+		droLetter[3]->Show(a);
+		droWork[3]->Show(a);
+		droWorkCard[3]->Show(a);
+		droMachine[3]->Show(a);
+		droMachCard[3]->Show(a);
+		zeroButtons[3]->Show(a);
+	}
+
 	void CreateDro()
 	{
 		const Colour accent = Accent();
@@ -118,6 +151,8 @@ namespace
 		mgr.AddField(new StaticTextField(DroHeaderY - 2, DroMachX, DroMachW, TextAlignment::Centre, "MACHINE"));
 		mgr.AddField(new StaticTextField(DroHeaderY - 2, DroZeroX, DroZeroW, TextAlignment::Centre, "ZERO"));
 
+		// Rows are created with the 3-axis geometry; LayoutFullDro() (end of this function and whenever the
+		// A axis appears or goes) places them for 3 or 4 axes and shows the 4th row only with 4 axes
 		for (size_t i = 0; i < DroAxes; ++i)
 		{
 			const PixelNumber y = DroRowsTop + i * (DroRowH3 + DroGap3);
@@ -125,25 +160,29 @@ namespace
 			// Axis letter in accent
 			DisplayField::SetDefaultFont(glcd28x32);
 			DisplayField::SetDefaultColours(accent, PageBg);
-			mgr.AddField(new StaticTextField(y + (DroRowH3 - bigH) / 2, DroAxisLabelX, DroAxisLabelW, TextAlignment::Centre, AxisNames[i]));
+			droLetter[i] = new StaticTextField(y + (DroRowH3 - bigH) / 2, DroAxisLabelX, DroAxisLabelW, TextAlignment::Centre, AxisNames[i]);
+			mgr.AddField(droLetter[i]);
 
 			// Work position (live), large
 			DisplayField::SetDefaultColours(Text, Tile);
 			droWork[i] = new FloatField(y + (DroRowH3 - bigH) / 2, DroWorkX + 6, DroWorkW - 18, TextAlignment::Right, 3);
 			mgr.AddField(droWork[i]);
-			AddCard(y, DroWorkX, DroWorkW, DroRowH3);
+			droWorkCard[i] = new ModernCard(y, DroWorkX, DroWorkW, DroRowH3, Tile, Border, true);
+			mgr.AddField(droWorkCard[i]);
 
 			// Machine position (live), smaller and muted
 			DisplayField::SetDefaultFont(glcd19x21);
 			DisplayField::SetDefaultColours(Muted, Tile);
 			droMachine[i] = new FloatField(y + (DroRowH3 - smallH) / 2, DroMachX + 6, DroMachW - 18, TextAlignment::Right, 3);
 			mgr.AddField(droMachine[i]);
-			AddCard(y, DroMachX, DroMachW, DroRowH3);
+			droMachCard[i] = new ModernCard(y, DroMachX, DroMachW, DroRowH3, Tile, Border, true);
+			mgr.AddField(droMachCard[i]);
 
 			// Zero button: current position becomes 0 in the active work offset
 			zeroButtons[i] = new CncZeroButton(y, DroZeroX, DroZeroW, DroRowH3, AxisLetters[i], evCncZero, (int)i);
 			mgr.AddField(zeroButtons[i]);
 		}
+		LayoutFullDro();
 
 		// Tool / spindle / feed row
 		const PixelNumber bigY = DroTsfY + (DroTsfH - bigH) / 2;
@@ -1033,14 +1072,13 @@ namespace UI
 		{
 			mgr.Refresh(true);				// buttons moved: redraw the page
 		}
-		if (index == 3 && v != compactFourAxes)
+		if (index == 3 && (v != compactFourAxes || v != droFourAxes))
 		{
 			compactFourAxes = v;			// compact DRO layout B (A under X)
 			LayoutCompactRow2();
-			if (CompactPageShown())
-			{
-				mgr.Refresh(true);
-			}
+			droFourAxes = v;				// full DRO: 4 rows of 50 px
+			LayoutFullDro();
+			mgr.Refresh(true);				// either DRO frame may be showing: redraw whichever it is
 		}
 	}
 	void SetAxisWorkplaceOffset(size_t axisIndex, size_t workplaceIndex, float offset) { CncWcs::SetWorkplaceOffset(axisIndex, workplaceIndex, offset); }

@@ -194,9 +194,9 @@ namespace Cnc
 
 		void SendCustom(int slot)
 		{
-			if (slot < 2 && MachineBusy())
+			if (slot == 0 && MachineBusy())
 			{
-				Refuse(CNC_LOCKED_JOB);			// CONTROL's CUSTOM 1/2: a job started while the question was open
+				Refuse(CNC_LOCKED_JOB);			// CONTROL's CUSTOM 1: a job started while the question was open
 				return;
 			}
 			SerialIo::Sendf("M98 P\"%s\"\n", customMacros[slot].c_str());

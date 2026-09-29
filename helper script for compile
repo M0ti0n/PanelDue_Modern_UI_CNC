@@ -1,0 +1,21 @@
+BUILD FOLDER
+
+
+cmake -S . -B build/v3-5 -G Ninja -DDEVICE=v3-5.0
+cmake --build build/v3-5 -j 8
+
+
+cmake -S . -B build/v3-7 -G Ninja -DDEVICE=v3-7.0
+cmake --build build/v3-7 -j 8
+
+
+cmake -S . -B build/v3-7c -G Ninja -DDEVICE=v3-7.0c
+cmake --build build/v3-7c -j 8
+
+
+cmake -S . -B build/5i -G Ninja -DDEVICE=5.0i
+cmake --build build/5i -j 8
+
+
+cmake -S . -B build/7i -G Ninja -DDEVICE=7.0i
+cmake --build build/7i -j 8

@@ -49,6 +49,7 @@ public:
 	CncZeroButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, char axisLetter, event_t e, int param);
 	void SetLetter(char c);
 	void SetLocked(bool l) { if (l != locked) { locked = l; changed = true; } }	// muted look while a job runs
+	void SetHeight(PixelNumber h) { if (h != height) { height = h; changed = true; } }	// 3 or 4 axis DRO rows
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
 };
 
@@ -62,13 +63,15 @@ class CncSegmentButton : public SingleButton
 	Colour accent;
 	bool rightActive;
 	bool locked = false;
+	bool stacked;											// two halves one above the other: first text on top, second below
 
 protected:
 	PixelNumber GetHeight() const override { return height; }
 
 public:
+	// rightActive = the second text (right half, or the bottom half when stacked) is the active one
 	CncSegmentButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph,
-					const char *left, const char *right, Colour pAccent, event_t e);
+					const char *left, const char *right, Colour pAccent, event_t e, bool pStacked = false);
 	bool IsRightActive() const { return rightActive; }
 	void SetRightActive(bool r) { if (r != rightActive) { rightActive = r; changed = true; } }
 	void SetLocked(bool l) { if (l != locked) { locked = l; changed = true; } }	// muted look, caller refuses touches

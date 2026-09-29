@@ -9,7 +9,7 @@
  *   [-][ 100% ][+][    1180 ][1%][5%][10%]
  *   SPINDLE  T3                   ACTUAL     STEP
  *   [-][  90% ][+][    7210 ][1%][5%][10%]
- *   [ COOLANT ][ CUSTOM 3 ][ CUSTOM 4 ]
+ *   [ COOLANT ][ CUSTOM 2 ][ CUSTOM 3 ]
  *   [ Insert T5 and press OK        [ OK ] ]          tool change row (only when needed)
  *   [    PAUSE    ]            [ ABORT ]
  *   [ JOB STATUS ][ JOB LIST ]   (sub-tabs)
@@ -416,7 +416,7 @@ namespace
 	{
 		for (size_t k = 0; k < 2; ++k)
 		{
-			const size_t slot = 2 + k;
+			const size_t slot = 1 + k;
 			customButtons[k]->SetText(CustomLabel(slot));
 			mgr.Show(customButtons[k], CustomUsed(slot));	// draws only while JOB STATUS is on screen
 		}
@@ -705,11 +705,11 @@ namespace
 			}
 		}
 
-		// COOLANT / VACUUM, CUSTOM 3, CUSTOM 4
+		// COOLANT / VACUUM, CUSTOM 2, CUSTOM 3 (slots 1 and 2; CUSTOM 1 is on CONTROL)
 		auxButton = AddButton(BtnY, BtnX(0), BtnW, BtnH, AuxLabel(), evCncJobAux, 0);
 		for (size_t k = 0; k < 2; ++k)
 		{
-			customButtons[k] = AddButton(BtnY, BtnX(1 + k), (k == 1) ? ScreenW - Margin - BtnX(2) : BtnW, BtnH, "", evCncJobCustom, (int)(2 + k));
+			customButtons[k] = AddButton(BtnY, BtnX(1 + k), (k == 1) ? ScreenW - Margin - BtnX(2) : BtnW, BtnH, "", evCncJobCustom, (int)(1 + k));
 		}
 
 		// Tool change row: OK first so it is drawn on top of the tile
@@ -1427,8 +1427,8 @@ namespace CncJob
 		UpdateAux();
 		for (size_t k = 0; k < 2; ++k)
 		{
-			customButtons[k]->SetText(CustomLabel(2 + k));
-			customButtons[k]->Show(CustomUsed(2 + k));	// no drawing while the screen is built
+			customButtons[k]->SetText(CustomLabel(1 + k));
+			customButtons[k]->Show(CustomUsed(1 + k));	// no drawing while the screen is built
 		}
 		UpdateAll();
 	}

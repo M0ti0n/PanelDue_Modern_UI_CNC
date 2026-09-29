@@ -552,8 +552,6 @@ static FieldTableEntry fieldTable[] =
 	{ rcvCncGlobal,						"global:cncCustom2Macro" },
 	{ rcvCncGlobal,						"global:cncCustom3Label" },
 	{ rcvCncGlobal,						"global:cncCustom3Macro" },
-	{ rcvCncGlobal,						"global:cncCustom4Label" },
-	{ rcvCncGlobal,						"global:cncCustom4Macro" },
 #endif
 
 	// M409 K"state" response

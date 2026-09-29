@@ -12,11 +12,16 @@
  *   TOOL HOLDER    ER COLLET / TOOL HOLDER       global.cncMeasureAfterChange true / false
  *   REMEMBER TOOL  toggle                        global.cncRememberTool
  *   TOOL SETTER    toggle                        global.cncToolSetter
- *   CUSTOM n       MACRO / LABEL / CLEAR         global.cncCustom<n>Macro, global.cncCustom<n>Label
+ *   CUSTOM n       MACRO / LABEL / CLEAR         global.cncCustom<n>Macro, global.cncCustom<n>Label (n = 1..3:
+ *                                                1 on CONTROL, 2 and 3 on JOB STATUS)
  *   COOL / VAC     COOLANT / VACUUM              global.cncAuxVacuum
- * On a change the panel rewrites the whole file with echo, one line every WriteInterval ms so the
- * machine's serial input is never flooded, then runs it (M98), which creates or sets the globals.
- * Values from the machine are ignored while that is going on.
+ * On a change the panel first sets the changed globals on the machine at once ("set global.x = v",
+ * or "global x = v" when the machine does not have it yet), so what the machine reports back is the
+ * new value whatever happens to the file. Then it rewrites the whole file with echo, one line every
+ * WriteInterval ms so the machine's serial input is never flooded, and renames it over the old one:
+ * the file only matters at the next power-on (config.g runs it). It is NOT run again after the write:
+ * if the write or the rename had failed, running the old file would put the old values back.
+ * Values from the machine are ignored while a write is going on and shortly after it.
  */
 
 #include "CncSettingsPage.hpp"
@@ -84,16 +89,16 @@ namespace
 	Colour swatchColours[NumAccentColours];
 
 	// ---- Page 2: machine ----
-	enum MachineItem : uint8_t { MProbeMode, MToolHolder, MRememberTool, MToolSetter, MCustom1, MCustom2, MCustom3, MCustom4, MAux, NumMachineTiles };
+	enum MachineItem : uint8_t { MProbeMode, MToolHolder, MRememberTool, MToolSetter, MCustom1, MCustom2, MCustom3, MAux, NumMachineTiles };
 	const char * const MachineLabels[NumMachineTiles] =
-		{ "PROBE MODE", "TOOL HOLDER", "REMEMBER TOOL", "TOOL SETTER", "CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "CUSTOM 4", "COOL / VAC" };
+		{ "PROBE MODE", "TOOL HOLDER", "REMEMBER TOOL", "TOOL SETTER", "CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "COOL / VAC" };
 	ModernTextButton *rememberTile, *setterTile;
 
 	const char * const ProbeModeLabels[] = { "AUTO", "SEMI-AUTO", "MANUAL" };
 	const char * const ToolHolderLabels[] = { "ER COLLET", "TOOL HOLDER" };
 	const char * const AuxLabels[] = { "COOLANT", "VACUUM" };
 	const char * const CustomLabels[] = { "MACRO", "LABEL", "CLEAR" };
-	const char * const CustomTitles[NumCustomMacros] = { "CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "CUSTOM 4" };
+	const char * const CustomTitles[NumCustomMacros] = { "CUSTOM 1", "CUSTOM 2", "CUSTOM 3" };
 	enum CustomAction : uint8_t { CMacro, CLabel, CClear };
 
 	constexpr size_t MaxLabel = 12;
@@ -110,12 +115,15 @@ namespace
 	} machine,
 	  incoming;											// a global reply being received: taken over when complete
 	bool receiving = false;
+	uint32_t presentMask = 0;							// bit per Global: the machine has this global
+	uint32_t incomingPresent = 0;						// same, for the reply being received
+	bool verifyReadback = false;						// the next complete reply must equal what we wrote
 
 	// ---- Writing sys/cnc-settings.g ----
 	enum class Global : uint8_t
 	{
 		ProbeMode, MeasureAfterChange, RememberTool, ToolSetter, AuxVacuum,
-		Custom1Label, Custom1Macro, Custom2Label, Custom2Macro, Custom3Label, Custom3Macro, Custom4Label, Custom4Macro,
+		Custom1Label, Custom1Macro, Custom2Label, Custom2Macro, Custom3Label, Custom3Macro,
 		Count
 	};
 	constexpr size_t NumGlobals = (size_t)Global::Count;
@@ -123,20 +131,23 @@ namespace
 	{
 		"cncProbeMode", "cncMeasureAfterChange", "cncRememberTool", "cncToolSetter", "cncAuxVacuum",
 		"cncCustom1Label", "cncCustom1Macro", "cncCustom2Label", "cncCustom2Macro",
-		"cncCustom3Label", "cncCustom3Macro", "cncCustom4Label", "cncCustom4Macro"
+		"cncCustom3Label", "cncCustom3Macro"
 	};
+	constexpr uint32_t Bit(Global g) { return 1u << (unsigned)g; }
+	// Label and macro of CUSTOM slot + 1 (they are next to each other in the enum)
+	constexpr uint32_t SlotBits(size_t slot) { return 3u << ((unsigned)Global::Custom1Label + 2 * (unsigned)slot); }
 	constexpr const char *SettingsFile = "0:/sys/cnc-settings.g";
 	constexpr const char *TempFile = "0:/sys/cnc-settings.tmp";	// written first, renamed when complete
 	const char * const HeaderLines[] =
 	{
 		"; CNC panel settings (SYSTEM > SETTINGS > CUSTOMIZATION), loaded by config.g at power-on.",
-		"; Written by the panel on every change: edit by hand only when no panel is connected.",
+		"; Written by the panel on every change. config.g declares the globals first (global.cnc*).",
 	};
 	constexpr size_t NumHeaderLines = ARRAY_SIZE(HeaderLines);
-	constexpr size_t LinesPerGlobal = 3;				// if !exists / global / set
+	constexpr size_t LinesPerGlobal = 1;				// set global.x = v (config.g declares the globals)
 	constexpr size_t NumFileLines = NumHeaderLines + NumGlobals * LinesPerGlobal;
-	constexpr uint32_t WriteInterval = 60;				// ms between lines
-	constexpr uint32_t IgnoreAfterWrite = 3000;			// ms: machine values after M98 may still be old ones
+	constexpr uint32_t WriteInterval = 100;				// ms between lines (the machine appends each one to the SD card)
+	constexpr uint32_t IgnoreAfterWrite = 3000;			// ms after the last line: replies may still show older values
 
 	bool writing = false;
 	size_t writeLine = 0;								// next line; NumFileLines = the M98 is next
@@ -298,12 +309,7 @@ namespace
 			const char * const name = GlobalNames[(size_t)g];
 			String<80> value;
 			FormatValue(g, value);
-			switch (k % LinesPerGlobal)
-			{
-			case 0:  line.printf("if !exists(global.%s)", name); break;
-			case 1:  line.printf("  global %s = %s", name, value.c_str()); break;
-			default: line.printf("set global.%s = %s", name, value.c_str()); break;
-			}
+			line.printf("set global.%s = %s", name, value.c_str());
 		}
 		String<240> cmd;
 		cmd.printf("echo %s\"%s\" \"", (n == 0) ? ">" : ">>", TempFile);
@@ -319,8 +325,31 @@ namespace
 		SerialIo::Sendf("%s\n", cmd.c_str());
 	}
 
-	// A machine setting changed: apply it here and (re)write the file from the first line
-	void MachineChanged()
+	// Set the changed globals on the machine now. A global it does not have yet is created.
+	void SendLive(uint32_t changed)
+	{
+		for (size_t g = 0; g < NumGlobals; ++g)
+		{
+			if ((changed & (1u << g)) != 0)
+			{
+				String<80> value;
+				FormatValue((Global)g, value);
+				if ((presentMask & (1u << g)) != 0)
+				{
+					SerialIo::Sendf("set global.%s = %s\n", GlobalNames[g], value.c_str());
+				}
+				else
+				{
+					SerialIo::Sendf("global %s = %s\n", GlobalNames[g], value.c_str());
+					presentMask |= (1u << g);				// so the next change sets it
+				}
+			}
+		}
+	}
+
+	// A machine setting changed ('changed' = the globals): apply it here, set it on the machine,
+	// and (re)write the file from the first line
+	void MachineChanged(uint32_t changed)
 	{
 		if (!Connected() || !globalsKnown)
 		{
@@ -331,6 +360,8 @@ namespace
 			return;
 		}
 		ApplyMachine();
+		SendLive(changed);
+		verifyReadback = false;						// checked again after this write
 		writing = true;
 		writeLine = 0;
 	}
@@ -341,7 +372,8 @@ namespace
 		if (ignoring && !writing && now - writeDoneTime >= IgnoreAfterWrite)
 		{
 			ignoring = false;
-			CncRequestGlobals();						// what the machine has now (a value may have been dropped)
+			verifyReadback = true;						// the machine must now report what we set
+			CncRequestGlobals();						// what the machine has now
 		}
 		if (!writing || now - lastWriteTime < WriteInterval)
 		{
@@ -352,6 +384,7 @@ namespace
 			// Connection lost during the write: drop it. After reconnecting the machine's values are
 			// shown again (they may have been changed in DWC, or it may be another machine).
 			writing = false;
+			verifyReadback = false;
 			return;
 		}
 		if (!MachineListening())
@@ -365,13 +398,31 @@ namespace
 		}
 		else
 		{
-			// Complete: replace the real file (a write cut short never touches it), then run it
+			// Complete: replace the real file (a write cut short never touches it). The file is not run:
+			// the machine already has the values (SendLive), and config.g runs the file at power-on.
 			SerialIo::Sendf("M471 S\"%s\" T\"%s\" D1\n", TempFile, SettingsFile);
-			SerialIo::Sendf("M98 P\"%s\"\n", SettingsFile);		// creates / sets the globals
 			writing = false;
 			writeDoneTime = now;
 			ignoring = true;
 		}
+	}
+
+	// The values the panel shows / wrote against the values the machine reports
+	bool SameSettings(const Machine& a, const Machine& b)
+	{
+		if (a.probeMode != b.probeMode || a.measureAfterChange != b.measureAfterChange || a.rememberTool != b.rememberTool
+			|| a.toolSetter != b.toolSetter || a.auxVacuum != b.auxVacuum)
+		{
+			return false;
+		}
+		for (size_t i = 0; i < NumCustomMacros; ++i)
+		{
+			if (strcmp(a.labels[i].c_str(), b.labels[i].c_str()) != 0 || strcmp(a.macros[i].c_str(), b.macros[i].c_str()) != 0)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	bool ParseBool(const char *data, bool& b)
@@ -534,19 +585,19 @@ namespace
 	void ProbeModeChosen(int, size_t choice)
 	{
 		machine.probeMode = (uint8_t)choice;
-		MachineChanged();
+		MachineChanged(Bit(Global::ProbeMode));
 	}
 
 	void ToolHolderChosen(int, size_t choice)
 	{
 		machine.measureAfterChange = (choice == 0);		// ER collet: the length changes with every tool
-		MachineChanged();
+		MachineChanged(Bit(Global::MeasureAfterChange));
 	}
 
 	void AuxChosen(int, size_t choice)
 	{
 		machine.auxVacuum = (choice == 1);
-		MachineChanged();
+		MachineChanged(Bit(Global::AuxVacuum));
 	}
 
 	void MacroPicked(const char *path, const char *name)
@@ -563,7 +614,7 @@ namespace
 			{
 				DefaultLabel(customSlot, name);			// a new button is named after its macro
 			}
-			MachineChanged();
+			MachineChanged(SlotBits(customSlot));
 		}
 		CncSystem::OpenSettings();						// back to SETTINGS page 2
 		GoToPage(4);
@@ -625,7 +676,7 @@ namespace
 			}
 			DefaultLabel(customSlot, name.c_str());
 		}
-		MachineChanged();
+		MachineChanged(SlotBits(customSlot));
 	}
 
 	bool CustomAllowed(size_t choice)
@@ -651,7 +702,7 @@ namespace
 		default:
 			machine.labels[customSlot].Clear();
 			machine.macros[customSlot].Clear();
-			MachineChanged();
+			MachineChanged(SlotBits(customSlot));
 			break;
 		}
 	}
@@ -682,12 +733,12 @@ namespace
 
 		case MRememberTool:
 			machine.rememberTool = !machine.rememberTool;
-			MachineChanged();
+			MachineChanged(Bit(Global::RememberTool));
 			break;
 
 		case MToolSetter:
 			machine.toolSetter = !machine.toolSetter;
-			MachineChanged();
+			MachineChanged(Bit(Global::ToolSetter));
 			break;
 
 		case MAux:
@@ -695,7 +746,7 @@ namespace
 			break;
 
 		default:
-			if (item >= MCustom1 && item <= MCustom4)
+			if (item >= MCustom1 && item <= MCustom3)
 			{
 				customSlot = item - MCustom1;
 				CncPopup::Choose(CustomTitles[customSlot], CustomLabels, ARRAY_SIZE(CustomLabels), CMacro, CustomAllowed, CustomChosen, (int)customSlot);
@@ -858,6 +909,7 @@ namespace CncSettings
 	void GlobalsArriving()
 	{
 		incoming = Machine();							// a global the machine does not have means its default
+		incomingPresent = 0;
 		receiving = true;
 	}
 
@@ -875,7 +927,17 @@ namespace CncSettings
 		globalsKnown = true;
 		if (!writing && !ignoring)						// otherwise ours are newer
 		{
+			if (verifyReadback)
+			{
+				verifyReadback = false;
+				if (!SameSettings(machine, incoming))
+				{
+					// What we set is not what the machine has: it refused a "set global" (see SYSTEM > ALERT)
+					Refuse("The machine did not keep\nthe setting. See SYSTEM > ALERT.");
+				}
+			}
 			machine = incoming;
+			presentMask = incomingPresent;
 			ApplyMachine();
 		}
 	}
@@ -890,6 +952,10 @@ namespace CncSettings
 		while (g < NumGlobals && strcasecmp(name, GlobalNames[g]) != 0)
 		{
 			++g;
+		}
+		if (g < NumGlobals)
+		{
+			incomingPresent |= (1u << g);
 		}
 		bool b;
 		switch ((Global)g)

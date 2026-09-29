@@ -6,17 +6,18 @@
  *   AXIS           [ X ][ Y ][ Z ]( [ A ] )          |  HOME  [ALL]
  *   STEP DISTANCE  [0.01][0.1][1][10][100]            |        [ Z ]
  *   MOVE           [  - 0.1  ][  + 0.1  ]             |        [ X ]
- *   ACTION         [RAPID|SLOW][SAFE Z][ XY0 ]        |        [ Y ]
- *                  [ CUSTOM 1 ][ COOL  ][CUSTOM 2]    |        [ A ]
+ *   ACTION         [RAPID][SAFE Z][ XY0 ]             |        [ Y ]
+ *                  [SLOW ][ COOL  ][CUSTOM 1]         |        [ A ]
  *
  * Moves are relative (G91 ... G90). RAPID uses G0, SLOW uses G1 at the jog feed, which is
  * set with the numpad from the DRO F tile. Every HOME button asks for confirmation first.
  * The spindle works like a printer heater: the S tile holds the set speed (numpad), the
  * DRO T tile switches between that speed (on, M3) and standby (off, M5).
  * With no speed set yet, switching on opens the S numpad first. Nothing is hard coded.
- * CUSTOM 1 / 2 run a macro assigned in settings and stay hidden until one is assigned.
+ * CUSTOM 1 runs a macro assigned in settings and stays hidden until one is assigned.
  * A macro whose file name starts with '!' asks for confirmation first.
- * RAPID | SLOW is one toggle: a tap anywhere on it switches the mode.
+ * RAPID / SLOW is one tall toggle (RAPID on top, SLOW below, the active half in accent): a tap
+ * anywhere on it switches the mode.
  *
  * Job running: the whole page is locked (muted, error beep); coolant is on JOB STATUS.
  * Job paused:  everything works again (jog away, clear chips, spindle, coolant) except
@@ -65,8 +66,8 @@ namespace
 	CncSegmentButton *feedMode;
 	ModernTextButton *auxButton, *safeZButton, *xy0Button;
 
-	// Custom macro buttons 1 / 2 (slots 0 / 1 of the shared custom macros)
-	constexpr size_t NumCustom = 2;
+	// Custom macro button 1 (slot 0 of the shared custom macros; 2 / 3 are on JOB STATUS)
+	constexpr size_t NumCustom = 1;
 	ModernTextButton *customButtons[NumCustom];
 	ModernTextButton *homeButtons[NumHome];
 
@@ -338,16 +339,15 @@ namespace CncControl
 			movePlus = AddButton(RowMoveY, LeftX + w + ColGap, w, RowH, "+", evCncMove, 1, glcd28x32);
 		}
 
-		// ACTION grid, 3 x 2
+		// ACTION grid, 3 x 2: RAPID / SLOW is one tall toggle over both rows of the first column
 		{
 			const PixelNumber w = (LeftW - 2 * ColGap) / 3;
-			feedMode = new CncSegmentButton(RowAct1Y, LeftX, w, RowH, "RAPID", "SLOW", accent, evCncFeedMode);
+			feedMode = new CncSegmentButton(RowAct1Y, LeftX, w, 2 * RowH + ActionGap, "RAPID", "SLOW", accent, evCncFeedMode, true);
 			mgr.AddField(feedMode);
 			safeZButton = AddButton(RowAct1Y, LeftX + w + ColGap, w, RowH, "SAFE Z", evCncSafeZ, 0);
 			xy0Button = AddButton(RowAct1Y, LeftX + 2 * (w + ColGap), w, RowH, "XY0", evCncXY0, 0);
-			customButtons[0] = AddButton(RowAct2Y, LeftX, w, RowH, "", evCncCustom, 0);
 			auxButton = AddButton(RowAct2Y, LeftX + w + ColGap, w, RowH, AuxLabel(), evCncAux, 0);
-			customButtons[1] = AddButton(RowAct2Y, LeftX + 2 * (w + ColGap), w, RowH, "", evCncCustom, 1);
+			customButtons[0] = AddButton(RowAct2Y, LeftX + 2 * (w + ColGap), w, RowH, "", evCncCustom, 0);
 			for (ModernTextButton *b : customButtons)
 			{
 				b->Show(false);							// until a macro is assigned
@@ -364,7 +364,7 @@ namespace CncControl
 										(i == 0) ? glcd19x21 : glcd28x32);
 		}
 
-		// Shared state: CUSTOM 1 / 2, COOLANT / VACUUM
+		// Shared state: CUSTOM 1, COOLANT / VACUUM
 		AddCustomListener(CustomChanged);
 		AddAuxListener(AuxChanged);
 		CustomChanged();

@@ -82,10 +82,10 @@ namespace Cnc
 	void SetAuxLabel(bool vacuum);
 	void AddAuxListener(void (*listener)());
 
-	// Custom macro buttons: slots 0/1 = CUSTOM 1/2 on CONTROL, 2/3 = CUSTOM 3/4 on JOB STATUS.
+	// Custom macro buttons: slot 0 = CUSTOM 1 on CONTROL, slots 1/2 = CUSTOM 2/3 on JOB STATUS.
 	// Assigned in SETTINGS; a slot without label or macro is hidden. A macro whose file name
 	// starts with '!' asks for confirmation first.
-	constexpr size_t NumCustomMacros = 4;
+	constexpr size_t NumCustomMacros = 3;
 	void SetCustomMacro(size_t slot, const char *label, const char *macro);
 	bool CustomUsed(size_t slot);
 	const char *CustomLabel(size_t slot);

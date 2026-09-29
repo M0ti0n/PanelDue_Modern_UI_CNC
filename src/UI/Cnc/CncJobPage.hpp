@@ -3,7 +3,7 @@
  *
  * JOB page: sub-tabs JOB STATUS / JOB LIST.
  * JOB STATUS: file, progress, times, per-tool FEED WORK and SPINDLE overrides,
- * COOLANT / VACUUM, CUSTOM 3 / 4, tool change row, PAUSE / RESUME and ABORT.
+ * COOLANT / VACUUM, CUSTOM 2 / 3, tool change row, PAUSE / RESUME and ABORT.
  * JOB LIST: files of the open folder (cached M20 listing), folders, paging, SEARCH with the
  * shared keyboard, SD card switch, RUN (M32) after the standard confirmation.
  */

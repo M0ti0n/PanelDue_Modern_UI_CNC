@@ -543,7 +543,7 @@ namespace CncProbe
 
 		// Parameter tiles: AUTO 2 x 3 stacked, SEMI / MANUAL one row each
 		{
-			static const char * const autoLabels[6] = { "TIP \xC3\x98", "CLEARANCE", "SEARCH", "Z DEPTH", "STOCK", "STORE TO" };
+			static const char * const autoLabels[6] = { "TIP \xC3\x98", "CLEAR D", "SEARCH", "Z DEPTH", "STOCK", "SAVE TO" };	// 97 px fit: CLEARANCE and STORE TO were cut
 			static const ParamId autoIds[6] = { PTip, PAutoClear, PAutoSearch, PZDepth, PStock, PStoreTo };
 			for (size_t k = 0; k < 6; ++k)
 			{

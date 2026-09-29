@@ -193,7 +193,7 @@ namespace CncLayout
 		constexpr PixelNumber PlusX = ValueX + ValueW + 6;						// 148
 		constexpr PixelNumber ActualX = PlusX + PmW + 8, ActualW = 112;			// 206
 		constexpr PixelNumber StepX = ActualX + ActualW + 8, StepW = 46, StepPitch = 50;	// 326
-		constexpr PixelNumber BtnY = Ovr2Y + OvrH + Gap, BtnH = 58;				// 446 COOLANT CUSTOM 3 CUSTOM 4
+		constexpr PixelNumber BtnY = Ovr2Y + OvrH + Gap, BtnH = 58;				// 446 COOLANT CUSTOM 2 CUSTOM 3
 		constexpr PixelNumber BtnW = (ContentW - 16) / 3;						// 150
 		constexpr PixelNumber BtnX(unsigned int i) { return Margin + i * (BtnW + 8); }
 		constexpr PixelNumber TcY = BtnY + BtnH + Gap, TcH = 76;				// 512 tool change row

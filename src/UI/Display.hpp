@@ -405,6 +405,7 @@ public:
 		Colour fillColour, Colour pBorderColour, bool showBorder = false);
 
 	void SetBorderVisible(bool visible);
+	void SetHeight(PixelNumber h) { if (h != height) { height = h; changed = true; } }	// CNC full DRO: 3 or 4 axis rows
 	void SetBorderColour(Colour colour);
 	void SetFillColour(Colour colour);
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
