@@ -54,7 +54,7 @@ Several main tabs contain their own sub-tabs so related CNC functions can remain
 ![CONTROL](docs/screenshots/pd_cnc_control_13m.png)
 
 CONTROL is the main page for manual machine movement and direct operator control.  
-The operator selects **X, Y, Z, or A**, chooses a movement step such as **0.01 / 0.1 / 1 / 10 / 100**, and then moves the selected axis using the `−` and `+` jog controls.  
+The operator selects **X, Y, Z, or A**  (4th axis must always be named A!), chooses a movement step such as **0.01 / 0.1 / 1 / 10 / 100**, and then moves the selected axis using the `−` and `+` jog controls.  
 **RAPID** uses relative `G0` moves, while **SLOW** uses relative `G1` moves at the configured jog feed; large 10 and 100-unit steps are protected so repeated taps do not queue multiple long movements.  
 The page also provides spindle control, coolant/vacuum control, homing, Safe Z, XY0, and a configurable **CUSTOM 1** macro button.
 
