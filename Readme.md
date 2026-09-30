@@ -401,8 +401,8 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
   - MANUAL   (operator does jogging and then probing by manually reading saving values (PRESS READ))
 
 - **TOOL HOLDER**
-  - ER COLLET     (ER COLLET assumes tool length can change after every tool change)
-  - TOOL HOLDER    (TOOL HOLDER assumes a repeatable holder length.)
+  - ER COLLET     ( assumes tool length can change after every tool change)
+  - TOOL HOLDER    ( assumes a repeatable holder length.)
 
 - **REMEMBER TOOL**
   - ON / OFF    (Saves/restores the last loaded tool across power cycles so the machine can remember what tool is in the spindle.)
@@ -410,9 +410,12 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
 - **TOOL SETTER**
   - ON / OFF    (Enables use of the physical tool setter and allows the MEASURE function for the loaded tool.)
 
-- **COOL / VAC**
-  - COOLANT
-  - VACUUM
+- **SLOW JOG F**
+  - [200][300][500][700][1000][1200] preselected values for slow jog feedrate
+
+- **COOL / VAC**  
+  - COOLANT  (shows COOLANT label on button)
+  - VACUUM   (shows vacuum label on button)
 
 - **CUSTOM 1**
   - assigned macro
