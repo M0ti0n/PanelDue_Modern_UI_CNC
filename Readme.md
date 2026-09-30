@@ -401,8 +401,7 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
   - MANUAL   (operator does jogging and then probing by manually reading saving values (PRESS READ))
 
 - **TOOL HOLDER**
--
--     (Selects ER COLLET or TOOL HOLDER behavior; ER COLLET assumes tool length can change after every tool change, while TOOL HOLDER assumes a repeatable holder length.)
+  Selects ER COLLET or TOOL HOLDER behavior; ER COLLET assumes tool length can change after every tool change, while TOOL HOLDER assumes a repeatable holder length.
   - ER COLLET
   - TOOL HOLDER
 
