@@ -36,6 +36,9 @@ Several main tabs contain their own sub-tabs so related CNC functions can remain
 
 # CONTROL
 
+### CONTROL
+![CONTROL](docs/screenshots/pd_cnc_control_13m.png)
+
 CONTROL is the main page for manual machine movement and direct operator control.  
 The operator selects **X, Y, Z, or A**, chooses a movement step such as **0.01 / 0.1 / 1 / 10 / 100**, and then moves the selected axis using the `−` and `+` jog controls.  
 **RAPID** uses relative `G0` moves, while **SLOW** uses relative `G1` moves at the configured jog feed; large 10 and 100-unit steps are protected so repeated taps do not queue multiple long movements.  
@@ -61,6 +64,9 @@ When a job is paused, most manual controls become available again, but homing re
 ---
 
 # WCS
+
+### WCS
+![WCS](docs/screenshots/pd_cnc_wcs_13m.png)
 
 The WCS section groups coordinate-system, tool, and probing functions under three sub-tabs:
 
@@ -157,6 +163,9 @@ Depending on the selected probing mode, available parameters can include:
 
 # JOB
 
+### JOB
+![JOB](docs/screenshots/pd_cnc_job_tab_13m.png)
+
 The JOB tab is divided into:
 
 - **JOB STATUS**
@@ -234,6 +243,9 @@ The file list is refreshed whenever the page is opened so it reflects the curren
 
 # MACROS
 
+### MACROS / SEARCH
+![MACROS Search](docs/screenshots/pd_cnc_macros_search_13m.png)
+
 MACROS provides direct access to the machine's `0:/macros` directory.  
 Macros can be displayed in either a compact list or a two-column grid, with folders opened normally and page controls used for longer directories.  
 SEARCH filters macros in the current directory using the shared keyboard, and tapping a macro normally opens a confirmation before executing it with `M98`.  
@@ -280,6 +292,11 @@ Macros cannot be started while the machine is actively running a job, but they b
 ---
 
 # SYSTEM
+
+### SETTINGS
+![SETTINGS](docs/screenshots/pd_cnc_settings_13m.png)
+### SYSTEM — ALERT / CONSOLE
+![SYSTEM Alert Console](docs/screenshots/pd_cnc_system_alert_console_13m.png)
 
 SYSTEM is divided into:
 
