@@ -396,19 +396,21 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
 ### Important settings
 
 - **PROBE MODE**
-  - AUTO
-  - SEMI-AUTO
-  - MANUAL
+  - AUTO  (machine does jogging and probing)
+  - SEMI-AUTO (operator does jogging machine does probing)
+  - MANUAL   (operator does jogging and then probing by manually reading saving values (PRESS READ))
 
 - **TOOL HOLDER**
+-
+-     (Selects ER COLLET or TOOL HOLDER behavior; ER COLLET assumes tool length can change after every tool change, while TOOL HOLDER assumes a repeatable holder length.)
   - ER COLLET
   - TOOL HOLDER
 
 - **REMEMBER TOOL**
-  - ON / OFF
+  - ON / OFF    (Saves/restores the last loaded tool across power cycles so the machine can remember what tool is in the spindle.)
 
 - **TOOL SETTER**
-  - ON / OFF
+  - ON / OFF    (Enables use of the physical tool setter and allows the MEASURE function for the loaded tool.)
 
 - **COOL / VAC**
   - COOLANT
