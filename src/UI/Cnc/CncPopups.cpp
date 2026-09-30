@@ -684,7 +684,7 @@ namespace CncPopup
 	}
 
 	void Choose(const char *title, const char * const labels[], size_t n, size_t selected,
-					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant)
+					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant, size_t columns)
 	{
 		ResetStandardPopup(title);
 		if (n > MaxChoices)
@@ -693,7 +693,7 @@ namespace CncPopup
 		}
 
 		// Up to 3 per row (5 choices: 3 + 2), 4 choices in one row (INFO TIMEOUT, as the Modern UI)
-		const size_t perRow = (n <= 4) ? n : 3;
+		const size_t perRow = (columns != 0 && columns <= n) ? columns : ((n <= 4) ? n : 3);
 		const size_t rows = (n + perRow - 1) / perRow;
 		const PixelNumber w = (InfoW - (perRow - 1) * ChoiceGapX) / perRow;
 		const PixelNumber blockH = rows * ChoiceH + (rows - 1) * ChoiceGapY;

@@ -607,7 +607,7 @@ namespace UI
 			break;
 
 		case evCncDroFeed:
-			CncControl::OpenFeedNumpad();
+			CncControl::OpenFeedPopup();
 			break;
 
 		case evEmergencyStop:

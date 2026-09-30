@@ -38,6 +38,7 @@ namespace CncSettings
 	void UpdateGlobal(const char *name, const char *data);	// global.cnc* from the machine
 	void GlobalsDone(bool complete);				// end of that reply (false: cut short)
 	bool ToolSetter();								// TOOL SETTER on (MEASURE is refused without)
+	void OpenJogFeedPopup(bool fromControl);		// SLOW JOG FEEDRATE presets (also the F tile on CONTROL)
 
 	// LABEL keyboard (CUSTOM n): touches outside the sheet
 	bool KeyboardOpen();

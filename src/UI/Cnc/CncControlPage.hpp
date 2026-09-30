@@ -38,8 +38,10 @@ namespace CncControl
 
 	// Numpads opened from the DRO tiles
 	void OpenSpindleNumpad();		// S tile: spindle speed (rpm)
-	void OpenFeedNumpad();			// F tile: SLOW jog feed (mm/min)
+	void OpenFeedPopup();			// F tile: the SLOW JOG FEEDRATE presets (same popup as SETTINGS > SLOW JOG F)
+	void SelectSlow();				// RAPID / SLOW toggle to SLOW
 	unsigned int JogFeed();			// SLOW jog feed, also used by the probe / M291 jog popup
+	void SetJogFeed(unsigned int feed);	// the machine's global.cncJogFeed arrived / was confirmed (SETTINGS > SLOW JOG F)
 }
 
 #endif /* SRC_UI_CNC_CNCCONTROLPAGE_HPP_ */

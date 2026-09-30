@@ -553,6 +553,7 @@ static FieldTableEntry fieldTable[] =
 	{ rcvCncGlobal,						"global:cncRememberTool" },
 	{ rcvCncGlobal,						"global:cncToolSetter" },
 	{ rcvCncGlobal,						"global:cncAuxVacuum" },
+	{ rcvCncGlobal,						"global:cncJogFeed" },
 	{ rcvCncGlobal,						"global:cncCustom1Label" },
 	{ rcvCncGlobal,						"global:cncCustom1Macro" },
 	{ rcvCncGlobal,						"global:cncCustom2Label" },

@@ -30,6 +30,7 @@
 #include "CncPopups.hpp"
 #include "CncKeyboard.hpp"
 #include "CncProbePage.hpp"
+#include "CncControlPage.hpp"
 #include "CncMacrosPage.hpp"
 #include "CncSystemPage.hpp"
 #include <UI/UserInterface.hpp>
@@ -89,9 +90,9 @@ namespace
 	Colour swatchColours[NumAccentColours];
 
 	// ---- Page 2: machine ----
-	enum MachineItem : uint8_t { MProbeMode, MToolHolder, MRememberTool, MToolSetter, MCustom1, MCustom2, MCustom3, MAux, NumMachineTiles };
+	enum MachineItem : uint8_t { MProbeMode, MToolHolder, MRememberTool, MToolSetter, MJogFeed, MAux, MCustom1, MCustom2, MCustom3, NumMachineTiles };
 	const char * const MachineLabels[NumMachineTiles] =
-		{ "PROBE MODE", "TOOL HOLDER", "REMEMBER TOOL", "TOOL SETTER", "CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "COOL / VAC" };
+		{ "PROBE MODE", "TOOL HOLDER", "REMEMBER TOOL", "TOOL SETTER", "SLOW JOG F", "COOL / VAC", "CUSTOM 1", "CUSTOM 2", "CUSTOM 3" };
 	ModernTextButton *rememberTile, *setterTile;
 
 	const char * const ProbeModeLabels[] = { "AUTO", "SEMI-AUTO", "MANUAL" };
@@ -102,6 +103,7 @@ namespace
 	enum CustomAction : uint8_t { CMacro, CLabel, CClear };
 
 	constexpr size_t MaxLabel = 12;
+	constexpr unsigned int MaxJogFeedValue = 20000;			// mm/min: largest jog feed accepted from the machine
 	constexpr size_t MaxMacroPath = 63;
 	struct Machine
 	{
@@ -110,6 +112,7 @@ namespace
 		bool rememberTool = false;
 		bool toolSetter = true;
 		bool auxVacuum = false;
+		unsigned int jogFeed = 300;						// SLOW jog feed, mm/min
 		String<MaxLabel> labels[NumCustomMacros];
 		String<MaxMacroPath> macros[NumCustomMacros];
 	} machine,
@@ -122,14 +125,14 @@ namespace
 	// ---- Writing sys/cnc-settings.g ----
 	enum class Global : uint8_t
 	{
-		ProbeMode, MeasureAfterChange, RememberTool, ToolSetter, AuxVacuum,
+		ProbeMode, MeasureAfterChange, RememberTool, ToolSetter, AuxVacuum, JogFeed,
 		Custom1Label, Custom1Macro, Custom2Label, Custom2Macro, Custom3Label, Custom3Macro,
 		Count
 	};
 	constexpr size_t NumGlobals = (size_t)Global::Count;
 	const char * const GlobalNames[NumGlobals] =
 	{
-		"cncProbeMode", "cncMeasureAfterChange", "cncRememberTool", "cncToolSetter", "cncAuxVacuum",
+		"cncProbeMode", "cncMeasureAfterChange", "cncRememberTool", "cncToolSetter", "cncAuxVacuum", "cncJogFeed",
 		"cncCustom1Label", "cncCustom1Macro", "cncCustom2Label", "cncCustom2Macro",
 		"cncCustom3Label", "cncCustom3Macro"
 	};
@@ -249,6 +252,7 @@ namespace
 	void ApplyMachine()
 	{
 		CncProbe::SetMode((CncProbe::Mode)machine.probeMode);
+		CncControl::SetJogFeed(machine.jogFeed);
 		if (strcmp(AuxLabel(), machine.auxVacuum ? "VACUUM" : "COOLANT") != 0)
 		{
 			SetAuxLabel(machine.auxVacuum);
@@ -275,6 +279,7 @@ namespace
 		case Global::RememberTool:			out.copy(machine.rememberTool ? "true" : "false"); break;
 		case Global::ToolSetter:			out.copy(machine.toolSetter ? "true" : "false"); break;
 		case Global::AuxVacuum:				out.copy(machine.auxVacuum ? "true" : "false"); break;
+		case Global::JogFeed:				out.printf("%u", machine.jogFeed); break;
 		default:
 			{
 				const size_t k = (size_t)g - (size_t)Global::Custom1Label;
@@ -411,7 +416,7 @@ namespace
 	bool SameSettings(const Machine& a, const Machine& b)
 	{
 		if (a.probeMode != b.probeMode || a.measureAfterChange != b.measureAfterChange || a.rememberTool != b.rememberTool
-			|| a.toolSetter != b.toolSetter || a.auxVacuum != b.auxVacuum)
+			|| a.toolSetter != b.toolSetter || a.auxVacuum != b.auxVacuum || a.jogFeed != b.jogFeed)
 		{
 			return false;
 		}
@@ -594,6 +599,24 @@ namespace
 		MachineChanged(Bit(Global::MeasureAfterChange));
 	}
 
+	// ---- SLOW JOG F: preset choices, 2 x 3 (from SETTINGS or from the F tile on CONTROL) ----
+	const char * const JogFeedLabels[] = { "200 mm/min", "300 mm/min", "500 mm/min", "700 mm/min", "1000 mm/min", "1200 mm/min" };
+	const int JogFeedValues[] = { 200, 300, 500, 700, 1000, 1200 };
+	bool jogFromControl = false;								// opened from the F tile: the choice also selects SLOW
+
+	void JogFeedChosen(int, size_t choice)
+	{
+		if (choice < ARRAY_SIZE(JogFeedValues))
+		{
+			machine.jogFeed = (unsigned int)JogFeedValues[choice];
+			if (jogFromControl)
+			{
+				CncControl::SelectSlow();
+			}
+			MachineChanged(Bit(Global::JogFeed));
+		}
+	}
+
 	void AuxChosen(int, size_t choice)
 	{
 		machine.auxVacuum = (choice == 1);
@@ -739,6 +762,10 @@ namespace
 		case MToolSetter:
 			machine.toolSetter = !machine.toolSetter;
 			MachineChanged(Bit(Global::ToolSetter));
+			break;
+
+		case MJogFeed:
+			CncSettings::OpenJogFeedPopup(false);
 			break;
 
 		case MAux:
@@ -973,6 +1000,15 @@ namespace CncSettings
 		case Global::RememberTool:			if (ParseBool(data, b)) { incoming.rememberTool = b; } break;
 		case Global::ToolSetter:			if (ParseBool(data, b)) { incoming.toolSetter = b; } break;
 		case Global::AuxVacuum:				if (ParseBool(data, b)) { incoming.auxVacuum = b; } break;
+		case Global::JogFeed:
+			{
+				const long f = atol(data);
+				if (f >= 1 && f <= (long)MaxJogFeedValue)
+				{
+					incoming.jogFeed = (unsigned int)f;
+				}
+			}
+			break;
 		case Global::Count:					return;			// not one of ours
 		default:
 			{
@@ -994,6 +1030,13 @@ namespace CncSettings
 	bool ToolSetter()
 	{
 		return machine.toolSetter;
+	}
+
+	void OpenJogFeedPopup(bool fromControl)
+	{
+		jogFromControl = fromControl;
+		CncPopup::Choose("SLOW JOG FEEDRATE", JogFeedLabels, ARRAY_SIZE(JogFeedLabels),
+							Nearest(JogFeedValues, ARRAY_SIZE(JogFeedValues), (int)machine.jogFeed), nullptr, JogFeedChosen, 0, false, 2);
 	}
 
 	bool KeyboardOpen()

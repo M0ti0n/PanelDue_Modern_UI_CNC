@@ -82,8 +82,9 @@ namespace CncPopup
 	// Preset choice: title + n choice buttons (labels must be static), 'selected' starts highlighted.
 	// instant = the choices are actions (SETTINGS > CUSTOM n: MACRO / LABEL / CLEAR): a tap on a choice
 	// closes the popup and runs the handler at once, the green check is not needed.
+	// columns: 0 = automatic (up to 4 in one row, else 3 per row); e.g. 2 for six wide choices in 2 x 3.
 	void Choose(const char *title, const char * const labels[], size_t n, size_t selected,
-					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant = false);
+					ChoiceAllowed allowed, ChoiceHandler onOk, int param, bool instant = false, size_t columns = 0);
 	// Colour choice (ACCENT COLOR): n swatches, 4 per row, the selected one outlined ('colours' must be static)
 	void ChooseColour(const char *title, const Colour colours[], size_t n, size_t selected, ChoiceHandler onOk, int param);
 

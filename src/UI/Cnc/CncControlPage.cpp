@@ -30,6 +30,7 @@
 #include "CncCommon.hpp"
 #include "CncWidgets.hpp"
 #include "CncPopups.hpp"
+#include "CncSettingsPage.hpp"
 #include <UI/UserInterface.hpp>
 #include "Hardware/SerialIo.hpp"
 #include "Hardware/SysTick.hpp"
@@ -50,7 +51,7 @@ namespace
 	const char * const StepNames[NumSteps] = { "0.01", "0.1", "1", "10", "100" };
 	constexpr size_t DefaultStep = 1;					// 0.1
 
-	constexpr unsigned int DefaultJogFeed = 300;		// mm/min (deg/min for A) in SLOW mode until set on the F tile
+	constexpr unsigned int DefaultJogFeed = 300;		// mm/min (deg/min for A) in SLOW mode until the machine reports global.cncJogFeed
 	constexpr unsigned int MaxJogFeed = 20000;
 	constexpr size_t FirstGuardedStep = 3;				// 10 and 100: no queued jogs
 	constexpr int32_t UnknownMaxRpm = 100000;			// upper limit when RRF has not reported the spindle max
@@ -294,13 +295,6 @@ namespace
 		}
 	}
 
-	// ---- Jog feed ----
-	void JogFeedEntered(int param, float value)
-	{
-		UNUSED(param);
-		jogFeed = (unsigned int)(value + 0.5f);
-		feedMode->SetRightActive(true);					// the feed applies to SLOW moves: select SLOW
-	}
 }
 
 namespace CncControl
@@ -617,21 +611,22 @@ namespace CncControl
 		return jogFeed;
 	}
 
-	void OpenFeedNumpad()
+	void SetJogFeed(unsigned int feed)
 	{
-		CncPopup::NumpadSpec pad;
-		pad.tag = "F";
-		pad.unit = "mm/min";
-		pad.value = (float)jogFeed;
-		pad.decimals = 0;
-		pad.allowDecimal = false;
-		pad.allowMinus = false;
-		pad.min = 1.0f;
-		pad.max = (float)MaxJogFeed;
-		pad.pos = nullptr;
-		pad.onOk = JogFeedEntered;
-		pad.param = 0;
-		CncPopup::Numpad(pad);
+		if (feed >= 1 && feed <= MaxJogFeed)
+		{
+			jogFeed = feed;
+		}
+	}
+
+	void OpenFeedPopup()
+	{
+		CncSettings::OpenJogFeedPopup(true);				// the same SLOW JOG FEEDRATE popup as in SETTINGS
+	}
+
+	void SelectSlow()
+	{
+		feedMode->SetRightActive(true);						// a feed only applies to SLOW moves
 	}
 
 	void SetSpindleState(OM::SpindleState state)
