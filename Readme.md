@@ -468,13 +468,13 @@ v3-7.0c
 
 | PanelDue model | Download |
 | --- | --- |
-- [PanelDue 5i](https://github.com/M0ti0n/PanelDue_Modern_UI_CNC/raw/refs/heads/main/last%20versions%20compiled/paneldue_MODERN_UI_5_i_v22092026_2.bin)
-- [PanelDue 7i](https://github.com/M0ti0n/PanelDue_Modern_UI_CNC/raw/refs/heads/main/last%20versions%20compiled/paneldue_MODERN_UI_7_i_v22092026_2.bin)
-- [PanelDue v3 5.0](https://github.com/M0ti0n/PanelDue_Modern_UI_CNC/raw/refs/heads/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_5_v22092026_2.bin)
-- [PanelDue v3 7.0C](https://github.com/M0ti0n/PanelDue_Modern_UI_CNC/raw/refs/heads/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_7_C_v22092026_2.bin)
-- [PanelDue v3 7.0](https://github.com/M0ti0n/PanelDue_Modern_UI_CNC/raw/refs/heads/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_7_v22092026_2.bin)
+- [PanelDue 5i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_MODERN_UI_5_i_v22092026_2.bin)
+- [PanelDue 7i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_MODERN_UI_7_i_v22092026_2.bin)
+- [PanelDue v3 5.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_5_v22092026_2.bin)
+- [PanelDue v3 7.0C](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_7_C_v22092026_2.bin)
+- [PanelDue v3 7.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_MODERN_UI_v3_7_v22092026_2.bin)
 
-
+IF links dont work latest builds are stored in "latest version compiled"  folder
 
 
 
