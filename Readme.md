@@ -60,7 +60,7 @@ The page also provides spindle control, coolant/vacuum control, homing, Safe Z, 
 
 ### Important controls
 
-- **Axis selection** — X, Y, Z, A
+- **Axis selection** — X, Y, Z, A  (4th axis must always be named A) !!!!!
 - **Step selection** — 0.01 / 0.1 / 1 / 10 / 100
 - **− / +** — jog selected axis
 - **RAPID** — relative rapid movement
