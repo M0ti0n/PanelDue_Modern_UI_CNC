@@ -468,11 +468,11 @@ v3-7.0c
 
 | PanelDue model | Download |
 | --- | --- |
-- [PanelDue v3 5.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0.bin)
-- [PanelDue v3 7.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0.bin)
-- [PanelDue v3 7.0C](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0c.bin)
-- [PanelDue 5.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0i.bin)
-- [PanelDue 7.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0i.bin)
+- [PanelDue v3 5.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc1.bin)
+- [PanelDue v3 7.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc1.bin)
+- [PanelDue v3 7.0C](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0c-rc1.bin)
+- [PanelDue 5.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0i-rc1.bin)
+- [PanelDue 7.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0i-rc1.bin)
 
 
 IF links dont work latest builds are stored in "latest version compiled"  folder
