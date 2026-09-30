@@ -1,14 +1,12 @@
  PanelDue Modern UI CNC — Interface Guide
-ALERT WARNING !!!!!!!!!
 
+ 
 
+## **!!!!!!!!! ALERT WARNING !!!!!!!!!**
 
-```md
-## <u>**!!!!!! THIS IS AT TEST PHASE !!!!!!**</u>
+## **!!!!! THIS IS AT TEST PHASE !!!!!!**
 
-### <u>**TAKE EXTRA CARE OF YOURSELF AND YOUR EQUIPMENT SINCE BUGS CAN CAUSE INJURIES AND MACHINE DAMAGE..... !!!!!!!**</u>
-```
-
+## **!!!!! TAKE EXTRA CARE OF YOURSELF AND YOUR EQUIPMENT SINCE BUGS CAN CAUSE INJURIES AND MACHINE DAMAGE !!!!!
 
 
 
