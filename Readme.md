@@ -1,4 +1,17 @@
  PanelDue Modern UI CNC — Interface Guide
+ALERT WARNING !!!!!!!!!
+
+
+
+!!!!!!  THIS IS AT TEST PHASE!!!
+
+TAKE EXTRA CARE OF YOURSELF AND YOUR EQUIPMENT SINCE BUGS CAN CAUSE INJURIES AND MACHINE DAMAGE..... !!!!!!! 
+
+
+
+
+
+
 
 This page describes the current CNC user interface and navigation structure in the latest firmware source.  
 The interface is organised around five main tabs — **CONTROL, WCS, JOB, MACROS, and SYSTEM** — with a dedicated **STOP** control always available from the main navigation.
