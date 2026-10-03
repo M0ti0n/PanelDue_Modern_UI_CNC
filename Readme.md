@@ -444,6 +444,30 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
 
 This document reflects the current CNC UI implementation in the latest source version and may change as additional CNC functionality is added or refined.
 
+RC2 notes.
+Implemented hardware rotary dial support and safy mechanics to prevent accidental jogs.
+
+How it behaves
+
+Wheel asleep: turning does nothing, and a bump doesn't keep any selection alive. A press wakes it, and the AXIS label on CONTROL then reads "AXIS - WHEEL ON" in accent colour.
+Wheel awake: each click jogs the chosen axis by ± the selected step, using RAPID or SLOW as chosen on the page (SLOW uses your SLOW jog feed). A press puts it back to sleep.
+Safe defaults:
+No axis is chosen at power-up (X is no longer preselected).
+Turning with no axis chosen gives "Select an axis first."
+A fast spin is capped at 5 clicks per command.
+The existing "large steps aren't queued" rule still applies.
+
+The 5-second timeout (dial and touch)
+
+After 5 seconds with no axis or step tap, no − / + press and no wheel use, the chosen axis is cleared, the step goes back to 0.1, and the wheel goes to sleep.
+Touch jogging needs an axis chosen too. The − / + buttons now refuse with "Select an axis first."
+
+Interlocks
+
+The wheel is only active on CONTROL with no popup open, so message boxes from RRF can't be hit by a turn.
+It also sleeps when a job is running or the panel is disconnected.
+Pausing a job lets it work again, like the rest of the page.
+
     
 ## Software Compatibility 
 
