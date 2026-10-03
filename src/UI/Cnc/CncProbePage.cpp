@@ -784,6 +784,7 @@ namespace CncProbe
 	bool ShowJogPrompt(const char *title, const char *text, uint32_t controls, bool withCancel, uint32_t seq)
 	{
 		jogSeq = seq;
+		SetJogWheelLook(false);								// the dial sleeps when a prompt opens (CncControl::Spin also sees the new context)
 
 		// Axis buttons for the axes the prompt allows (X Y Z A)
 		jogNumAxes = 0;
@@ -963,6 +964,47 @@ namespace CncProbe
 	bool JogPromptOpen()
 	{
 		return mgr.IsPopupActive(jogPopup);
+	}
+
+	void JogWheel(int clicks)
+	{
+		if (!mgr.IsPopupActive(jogPopup) || jogNumAxes == 0)
+		{
+			return;
+		}
+		if (clicks > 5)
+		{
+			clicks = 5;										// a fast spin is cut, not queued
+		}
+		else if (clicks < -5)
+		{
+			clicks = -5;
+		}
+		if (jogStep >= FirstGuardedJogStep && !GuardedJogAllowed(lastGuardedJog))
+		{
+			return;											// the last large move is still running: this turn is dropped
+		}
+		const float d = JogSteps[jogStep] * (float)clicks;
+		SerialIo::Sendf("G91\nG1 %c%.3f F%u\nG90\n", AxisLetters[jogAxisIndex[jogAxis]], (double)d, CncControl::JogFeed());
+	}
+
+	void JogWheelOk()
+	{
+		if (mgr.IsPopupActive(jogPopup))
+		{
+			SerialIo::Sendf("M292 P0 S%lu\n", (unsigned long)jogSeq);
+			mgr.ClearAllPopups();
+		}
+	}
+
+	void SetJogWheelLook(bool awake)
+	{
+		if (jogMinus != nullptr && jogPlus != nullptr)
+		{
+			const Colour c = awake ? Accent() : Text;
+			jogMinus->SetColours(c, Tile);
+			jogPlus->SetColours(c, Tile);
+		}
 	}
 
 	void ClosePopups()

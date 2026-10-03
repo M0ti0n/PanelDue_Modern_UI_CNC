@@ -315,8 +315,7 @@ namespace
 			static String<28> question;
 			static const char * const answers[2] = { "YES", "NO" };
 			question.printf("IS T%d IN THE SPINDLE?", selectedTool);
-			CncPopup::FormGroup group = { question.c_str(), answers, 2, false, 0, 0, 0 };	// no default answer
-			CncPopup::Form(title.c_str(), &group, 1, LoadAnswer, selectedTool);
+			CncPopup::FormQuestion(title.c_str(), question.c_str(), answers, 2, LoadAnswer, selectedTool);
 			return;
 		}
 

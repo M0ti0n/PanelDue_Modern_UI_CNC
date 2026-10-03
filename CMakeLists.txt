@@ -147,6 +147,12 @@ if ("${MACHINE}" STREQUAL "mill")
 else()
 	message(FATAL_ERROR "${MACHINE} is invalid. Supported: -DMACHINE=mill")
 endif()
+# Hardware dial (rotary encoder with push button on PA2 / PA3 / PB6, the PanelDue encoder header).
+# Without the encoder fitted the pins read as idle, so it is harmless. -DENCODER=OFF leaves it out.
+option( ENCODER "Rotary encoder (hardware dial) support for the CNC CONTROL page" ON )
+if (ENCODER)
+	set( MACHINE_FLAGS "${MACHINE_FLAGS} -DSUPPORT_ENCODER" )
+endif()
 set( DEVICE_FLAGS "${DEVICE_FLAGS} -DCNC_UI=1 ${MACHINE_FLAGS}" )
 message( "CNC machine type: " ${MACHINE} )
 

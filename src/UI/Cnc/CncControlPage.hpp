@@ -19,6 +19,18 @@ namespace CncControl
 	bool ProcessTouch(ButtonPress bp);
 	bool ProcessRelease(ButtonPress bp);
 
+	// Hardware dial (rotary encoder). clicks = turn since the last call (+ right, - left), pressed = the
+	// button was pressed. It is asleep until a press wakes it. Awake, a turn jogs like the - / + buttons of
+	// the screen showing (CONTROL: chosen axis x STEP, RAPID or SLOW; jog prompt: its axis x STEP, SLOW JOG F
+	// feed). A press while awake ends it on CONTROL and answers OK in the jog prompt.
+	void Wheel(int clicks, bool pressed);
+
+	// Called from the UI spin loop. context = what the dial would act on: 0 nothing (other page, other popup),
+	// 1 CONTROL, 2 the jog prompt. A change of context puts the dial to sleep. Also the idle timeout: 5 s without
+	// a touch jog, axis / step tap or dial use clears the chosen axis, sets the step back to the default and
+	// puts the dial to sleep.
+	void Spin(int context);
+
 	// Machine state
 	bool RefuseUnhomed();							// X, Y or Z not homed: ALERT "Home X, Y and Z first."
 	void SetHomed(size_t axis, bool homed);

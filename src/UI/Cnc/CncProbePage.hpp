@@ -37,6 +37,11 @@ namespace CncProbe
 	bool ShowJogPrompt(const char *title, const char *text, uint32_t controls, bool withCancel, uint32_t seq);
 	bool AutoProbeRunning();
 	bool JogPromptOpen();
+
+	// Hardware dial inside the jog prompt: a click does what the - / + buttons do (clicks x STEP, SLOW JOG F feed)
+	void JogWheel(int clicks);
+	void JogWheelOk();									// dial press while awake: the prompt's OK / PROBE / READ
+	void SetJogWheelLook(bool awake);					// - / + in accent colour while the dial is awake
 	void AutoMessage(const char *title, const char *text);	// info message from the auto probe macro
 	void ClosePopups();									// emergency stop
 	void CloseJogPrompt();								// the M291 prompt was answered elsewhere (DWC)

@@ -31,6 +31,7 @@
 #include "CncWidgets.hpp"
 #include "CncPopups.hpp"
 #include "CncSettingsPage.hpp"
+#include "CncProbePage.hpp"
 #include <UI/UserInterface.hpp>
 #include "Hardware/SerialIo.hpp"
 #include "Hardware/SysTick.hpp"
@@ -78,6 +79,16 @@ namespace
 	size_t currentStep = DefaultStep;
 	size_t numVisibleAxes = 3;
 
+	// Safety: an axis or step that is not used for IdleTimeoutMs is cleared again, so a stray touch or a turn
+	// of the wheel can never move an axis chosen long ago. The wheel is asleep until a press wakes it.
+	constexpr uint32_t IdleTimeoutMs = 5000;
+	constexpr int WheelMaxClicks = 5;					// clicks per command: a fast spin is cut, not queued
+	bool axisChosen = false;							// no axis is chosen at power-up
+	bool wheelActive = false;
+	int wheelContext = 0;								// 0 nothing, 1 CONTROL, 2 jog prompt (set by Spin)
+	uint32_t lastActivity = 0;
+	StaticTextField *axisLabel = nullptr;
+
 	String<12> minusText, plusText;
 	uint8_t homedBits = 0;								// bit n = axis n homed
 	bool spindleRunning = false;
@@ -104,6 +115,26 @@ namespace
 		}
 	}
 
+	void ClearAxisSelection()
+	{
+		if (selectedAxis != nullptr)
+		{
+			mgr.Press(ButtonPress(selectedAxis, 0), false);
+			selectedAxis = nullptr;
+		}
+		axisChosen = false;
+	}
+
+	void UpdateWheelLabel()
+	{
+		if (axisLabel != nullptr)
+		{
+			axisLabel->SetColours(wheelActive ? Accent() : Muted, PageBg);
+			axisLabel->SetValue(wheelActive ? "AXIS - WHEEL ON" : "AXIS", true);
+		}
+		CncProbe::SetJogWheelLook(wheelActive && wheelContext == 2);
+	}
+
 	// X, Y, Z get equal widths; with a visible A the row is split in four
 	void LayoutAxisRow()
 	{
@@ -118,10 +149,9 @@ namespace
 			mgr.Show(axisButtons[i], i < n);
 		}
 		mgr.Show(homeButtons[4], numVisibleAxes > 3);
-		if (currentAxis >= n)
+		if (axisChosen && currentAxis >= n)
 		{
-			currentAxis = 0;
-			Select(selectedAxis, axisButtons[0]);
+			ClearAxisSelection();						// the chosen axis is not on the page any more
 		}
 	}
 
@@ -131,6 +161,20 @@ namespace
 		plusText.printf("+ %s", StepNames[currentStep]);
 		moveMinus->SetText(minusText.c_str());
 		movePlus->SetText(plusText.c_str());
+	}
+
+	// Idle timeout: no axis, default step, wheel asleep
+	void ResetSelection()
+	{
+		ClearAxisSelection();
+		if (currentStep != DefaultStep)
+		{
+			currentStep = DefaultStep;
+			Select(selectedStep, stepButtons[DefaultStep]);
+			UpdateMoveLabels();
+		}
+		wheelActive = false;
+		UpdateWheelLabel();
 	}
 
 	void UpdateHomeColours()
@@ -305,7 +349,7 @@ namespace CncControl
 		const Colour accent = Accent();
 
 		// Labels
-		AddLabel(LabelAxisY, LeftX + 2, 120, "AXIS");
+		axisLabel = AddLabel(LabelAxisY, LeftX + 2, 250, "AXIS");
 		AddLabel(LabelAxisY, HomeX, HomeW, "HOME", TextAlignment::Centre);
 		AddLabel(LabelStepY, LeftX + 2, 250, "STEP DISTANCE");
 		AddLabel(LabelMoveY, LeftX + 2, 120, "MOVE");
@@ -365,8 +409,8 @@ namespace CncControl
 		AuxChanged();
 
 		// Initial state
-		selectedAxis = axisButtons[0];
-		axisButtons[0]->Press(true, 0);
+		selectedAxis = nullptr;							// no axis is chosen until one is touched
+		axisChosen = false;
 		selectedStep = stepButtons[DefaultStep];
 		stepButtons[DefaultStep]->Press(true, 0);
 		LayoutAxisRow();
@@ -374,6 +418,82 @@ namespace CncControl
 		UpdateHomeColours();
 
 		return mgr.GetRoot();
+	}
+
+	void Spin(int context)
+	{
+		if (context != wheelContext)
+		{
+			wheelContext = context;
+			if (wheelActive)
+			{
+				wheelActive = false;						// other screen: the dial sleeps
+				UpdateWheelLabel();
+			}
+		}
+		if (wheelActive && wheelContext == 1 && lockAll)
+		{
+			wheelActive = false;							// a job started: the dial sleeps
+			UpdateWheelLabel();
+		}
+		if ((axisChosen || wheelActive || currentStep != DefaultStep) && SystemTick::GetTickCount() - lastActivity >= IdleTimeoutMs)
+		{
+			ResetSelection();
+		}
+	}
+
+	void Wheel(int clicks, bool pressed)
+	{
+		const bool inPrompt = (wheelContext == 2);
+		if (wheelContext == 0 || (!inPrompt && lockAll) || GetStatus() == OM::PrinterStatus::connecting)
+		{
+			if (wheelActive)
+			{
+				wheelActive = false;
+				UpdateWheelLabel();
+			}
+			return;
+		}
+		if (pressed)
+		{
+			const bool wasActive = wheelActive;
+			wheelActive = !wheelActive;						// wake up / done
+			lastActivity = SystemTick::GetTickCount();
+			UpdateWheelLabel();
+			if (wasActive && inPrompt)
+			{
+				CncProbe::JogWheelOk();						// press while awake in the prompt: OK
+			}
+			return;
+		}
+		if (clicks == 0 || !wheelActive)
+		{
+			return;											// a bump of the sleeping dial does nothing and keeps nothing alive
+		}
+		lastActivity = SystemTick::GetTickCount();
+		if (inPrompt)
+		{
+			CncProbe::JogWheel(clicks);
+			return;
+		}
+		if (!axisChosen)
+		{
+			Refuse("Select an axis first.");
+			return;
+		}
+		if (!JogAllowed())
+		{
+			return;											// a large step is still moving: this turn is dropped
+		}
+		if (clicks > WheelMaxClicks)
+		{
+			clicks = WheelMaxClicks;
+		}
+		else if (clicks < -WheelMaxClicks)
+		{
+			clicks = -WheelMaxClicks;
+		}
+		Jog(clicks);
 	}
 
 	bool ProcessTouch(ButtonPress bp)
@@ -405,11 +525,14 @@ namespace CncControl
 		{
 		case evCncAxis:
 			currentAxis = (size_t)bp.GetIParam();
+			axisChosen = true;
+			lastActivity = SystemTick::GetTickCount();
 			Select(selectedAxis, bp.GetButton());
 			return true;
 
 		case evCncStep:
 			currentStep = (size_t)bp.GetIParam();
+			lastActivity = SystemTick::GetTickCount();
 			Select(selectedStep, bp.GetButton());
 			UpdateMoveLabels();
 			return true;
@@ -431,11 +554,17 @@ namespace CncControl
 			switch ((Event)bp.GetEvent())
 			{
 			case evCncMove:
+				if (!axisChosen)
+				{
+					Refuse("Select an axis first.");
+					break;
+				}
 				if (!JogAllowed())
 				{
 					Refuse("Wait until the last move has finished.");
 					break;
 				}
+				lastActivity = SystemTick::GetTickCount();
 				mgr.Press(bp, true);
 				Jog(bp.GetIParam());
 				break;

@@ -29,6 +29,9 @@
 #include "Version.hpp"
 #include "Hardware/SerialIo.hpp"
 #include "Hardware/SysTick.hpp"
+#ifdef SUPPORT_ENCODER
+# include "Hardware/RotaryEncoder.hpp"
+#endif
 #include "Icons/Icons.hpp"
 #include <UI/MessageLog.hpp>
 #include <UI/UserInterfaceConstants.hpp>
@@ -426,6 +429,14 @@ namespace UI
 {
 	void InitColourScheme(const ColourScheme *scheme) { UNUSED(scheme); }
 
+#ifdef SUPPORT_ENCODER
+	// Hardware dial: PA2 / PA3 (A, B) and PB6 (button). 4 pulses per click is the usual detented encoder;
+	// use -4 to reverse the turning direction.
+	constexpr int EncoderPulsesPerClick = 4;
+	RotaryEncoder * volatile encoder = nullptr;			// polled from the 1 ms tick, set once initialised
+	uint32_t lastEncoderRead = 0;
+#endif
+
 	void CreateFields(uint32_t language, const ColourScheme& colours, uint32_t p_infoTimeout)
 	{
 		UNUSED(language);
@@ -481,6 +492,15 @@ namespace UI
 		touchCalibInstruction = new StaticTextField(DisplayY/2 - 10, 0, DisplayX, TextAlignment::Centre, strings->touchTheSpot);
 
 		mgr.SetRoot(nullptr);
+
+#ifdef SUPPORT_ENCODER
+		if (encoder == nullptr)
+		{
+			RotaryEncoder * const e = new RotaryEncoder(2, 3, 32 + 6);	// PA2, PA3 and PB6
+			e->Init(EncoderPulsesPerClick);
+			encoder = e;										// only now does the tick start polling it
+		}
+#endif
 	}
 
 	void ShowDefaultPage()
@@ -849,7 +869,16 @@ namespace UI
 	void SetSimulatedTime(uint32_t simulatedTime) { UNUSED(simulatedTime); }
 	bool IsSetupTab() { return false; }
 	bool IsJobStatusPageShown() { return currentPage == 2 && CncJob::StatusTabSelected(); }
-	void Tick() { }
+	void Tick()
+	{
+#ifdef SUPPORT_ENCODER
+		RotaryEncoder * const e = encoder;
+		if (e != nullptr)
+		{
+			e->Poll();										// 1 ms: samples the encoder pins and the button
+		}
+#endif
+	}
 	void Spin()
 	{
 		CncProbe::Spin();
@@ -857,6 +886,22 @@ namespace UI
 		CncJob::Spin();
 		CncSystem::Spin(currentPage == 4);
 		CncMacros::Spin();
+		// What the dial would act on: 1 = CONTROL with no popup, 2 = the jog prompt, 0 = nothing
+		const int wheelContext = (mgr.GetPopup() == nullptr) ? ((currentPage == 0) ? 1 : 0) : (CncProbe::JogPromptOpen() ? 2 : 0);
+		CncControl::Spin(wheelContext);		// idle timeout of the axis / step / dial, context changes
+#ifdef SUPPORT_ENCODER
+		RotaryEncoder * const e = encoder;
+		if (e != nullptr && SystemTick::GetTickCount() - lastEncoderRead >= MinimumEncoderCommandInterval)
+		{
+			lastEncoderRead = SystemTick::GetTickCount();
+			const int clicks = e->GetChange();
+			const bool pressed = e->GetButtonPress();
+			if (clicks != 0 || pressed)
+			{
+				CncControl::Wheel(clicks, pressed);
+			}
+		}
+#endif
 	}
 	void PrintStarted() { }
 	void PrintingFilenameChanged(const char data[]) { CncJob::SetFileName(data); }
