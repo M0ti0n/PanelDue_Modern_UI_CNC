@@ -444,7 +444,7 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
 
 This document reflects the current CNC UI implementation in the latest source version and may change as additional CNC functionality is added or refined.
 
-RC2 notes.
+## RC2 notes.
 Implemented hardware rotary dial support and safy mechanics to prevent accidental jogs.
 
 How it behaves
