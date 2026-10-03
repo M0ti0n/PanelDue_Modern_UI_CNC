@@ -280,13 +280,13 @@ namespace Cnc
 		}
 	}
 
-	bool GuardedJogAllowed(uint32_t& lastSent)
+	bool GuardedJogAllowed(uint32_t& lastSent, bool ignoreBusy)
 	{
 		constexpr uint32_t GuardTime = 700;				// ms after sending: covers the status poll delay
 		constexpr uint32_t SettleTime = 1200;			// ms without a position change (2 polls): the move is over
 		const uint32_t now = SystemTick::GetTickCount();
 		if ((lastSent != 0 && now - lastSent < GuardTime)
-			|| GetStatus() == OM::PrinterStatus::busy
+			|| (!ignoreBusy && GetStatus() == OM::PrinterStatus::busy)
 			|| (lastPositionChange != 0 && now - lastPositionChange < SettleTime))	// also when paused (RRF reports paused)
 		{
 			return false;								// also a move from another page (CONTROL / probe jog) still running

@@ -703,9 +703,10 @@ namespace CncProbe
 				if (jogStep >= FirstOneShotJogStep)
 				{
 					IgnoreRepeats();				// 1 and 10: one move per tap, holding must not queue more
-					if (jogStep >= FirstGuardedJogStep && !GuardedJogAllowed(lastGuardedJog))
+					if (jogStep >= FirstGuardedJogStep && !GuardedJogAllowed(lastGuardedJog, true))
 					{
-						Refuse("Wait until the last move has finished.");
+						// No alert here: it would replace this prompt while the macro still waits for it.
+						// The tap is dropped, as with the dial.
 						return true;
 					}
 				}
@@ -972,7 +973,11 @@ namespace CncProbe
 		{
 			return;
 		}
-		if (clicks > 5)
+		if (jogStep >= FirstGuardedJogStep)
+		{
+			clicks = (clicks > 0) ? 1 : -1;				// 10: exactly one step per command, never clicks x step
+		}
+		else if (clicks > 5)
 		{
 			clicks = 5;										// a fast spin is cut, not queued
 		}
@@ -980,7 +985,7 @@ namespace CncProbe
 		{
 			clicks = -5;
 		}
-		if (jogStep >= FirstGuardedJogStep && !GuardedJogAllowed(lastGuardedJog))
+		if (jogStep >= FirstGuardedJogStep && !GuardedJogAllowed(lastGuardedJog, true))
 		{
 			return;											// the last large move is still running: this turn is dropped
 		}

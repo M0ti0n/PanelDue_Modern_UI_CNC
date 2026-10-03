@@ -485,13 +485,9 @@ namespace CncControl
 		{
 			return;											// a large step is still moving: this turn is dropped
 		}
-		// Never multiply the guarded 10 / 100 unit steps by accumulated encoder clicks.
-		// One accepted wheel read may therefore issue only one large jog; JogAllowed() then
-		// blocks another until the machine has finished the guarded move. Small steps keep
-		// the existing bounded multi-click behaviour so the wheel still feels responsive.
 		if (currentStep >= FirstGuardedStep)
 		{
-			clicks = (clicks > 0) ? 1 : -1;
+			clicks = (clicks > 0) ? 1 : -1;				// 10 and 100: exactly one step per command, never clicks x step
 		}
 		else if (clicks > WheelMaxClicks)
 		{

@@ -98,7 +98,9 @@ namespace Cnc
 	float MachinePosition(size_t axis);
 	// Large jogs (10 mm and more): allowed only once the last one has finished (the machine position
 	// has settled), so they cannot queue up. 'lastSent' is the caller's tick of its last large jog.
-	bool GuardedJogAllowed(uint32_t& lastSent);
+	// ignoreBusy: the jog prompt of a macro (M291 with jog buttons) is open, so RRF reports busy only because that
+	// macro is waiting: busy must not block a large step there
+	bool GuardedJogAllowed(uint32_t& lastSent, bool ignoreBusy = false);
 
 	// Last work position (DRO, user coordinates) reported by RRF
 	void SetWorkPosition(size_t axis, float value);
