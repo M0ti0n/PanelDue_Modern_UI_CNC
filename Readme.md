@@ -1,5 +1,19 @@
  PanelDue Modern UI CNC — Interface Guide
 
+ 
+
+## **!!!!!!!!! ALERT WARNING !!!!!!!!!**
+
+## **!!!!! THIS IS AT TEST PHASE !!!!!!**
+
+## !!!!! TAKE EXTRA CARE OF YOURSELF AND YOUR EQUIPMENT SINCE BUGS CAN CAUSE INJURIES AND MACHINE DAMAGE !!!!!
+
+##  USING AT YOUR OWN RISK
+
+
+
+
+
 This page describes the current CNC user interface and navigation structure in the latest firmware source.  
 The interface is organised around five main tabs — **CONTROL, WCS, JOB, MACROS, and SYSTEM** — with a dedicated **STOP** control always available from the main navigation.
 
@@ -36,14 +50,17 @@ Several main tabs contain their own sub-tabs so related CNC functions can remain
 
 # CONTROL
 
+### CONTROL
+![CONTROL](docs/screenshots/pd_cnc_control_13m.png)
+
 CONTROL is the main page for manual machine movement and direct operator control.  
-The operator selects **X, Y, Z, or A**, chooses a movement step such as **0.01 / 0.1 / 1 / 10 / 100**, and then moves the selected axis using the `−` and `+` jog controls.  
+The operator selects **X, Y, Z, or A**  (4th axis must always be named A), chooses a movement step such as **0.01 / 0.1 / 1 / 10 / 100**, and then moves the selected axis using the `−` and `+` jog controls.  
 **RAPID** uses relative `G0` moves, while **SLOW** uses relative `G1` moves at the configured jog feed; large 10 and 100-unit steps are protected so repeated taps do not queue multiple long movements.  
 The page also provides spindle control, coolant/vacuum control, homing, Safe Z, XY0, and a configurable **CUSTOM 1** macro button.
 
 ### Important controls
 
-- **Axis selection** — X, Y, Z, A
+- **Axis selection** — X, Y, Z, A  (4th axis must always be named A) !!!!!
 - **Step selection** — 0.01 / 0.1 / 1 / 10 / 100
 - **− / +** — jog selected axis
 - **RAPID** — relative rapid movement
@@ -61,6 +78,9 @@ When a job is paused, most manual controls become available again, but homing re
 ---
 
 # WCS
+
+### WCS
+![WCS](docs/screenshots/pd_cnc_wcs_13m.png)
 
 The WCS section groups coordinate-system, tool, and probing functions under three sub-tabs:
 
@@ -157,6 +177,9 @@ Depending on the selected probing mode, available parameters can include:
 
 # JOB
 
+### JOB
+![JOB](docs/screenshots/pd_cnc_job_tab_13m.png)
+
 The JOB tab is divided into:
 
 - **JOB STATUS**
@@ -234,6 +257,9 @@ The file list is refreshed whenever the page is opened so it reflects the curren
 
 # MACROS
 
+### MACROS / SEARCH
+![MACROS Search](docs/screenshots/pd_cnc_macros_search_13m.png)
+
 MACROS provides direct access to the machine's `0:/macros` directory.  
 Macros can be displayed in either a compact list or a two-column grid, with folders opened normally and page controls used for longer directories.  
 SEARCH filters macros in the current directory using the shared keyboard, and tapping a macro normally opens a confirmation before executing it with `M98`.  
@@ -280,6 +306,11 @@ Macros cannot be started while the machine is actively running a job, but they b
 ---
 
 # SYSTEM
+
+### SETTINGS
+![SETTINGS](docs/screenshots/pd_cnc_settings_13m.png)
+### SYSTEM — ALERT / CONSOLE
+![SYSTEM Alert Console](docs/screenshots/pd_cnc_system_alert_console_13m.png)
 
 SYSTEM is divided into:
 
@@ -365,23 +396,26 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
 ### Important settings
 
 - **PROBE MODE**
-  - AUTO
-  - SEMI-AUTO
-  - MANUAL
+  - AUTO  (machine does jogging and probing)
+  - SEMI-AUTO (operator does jogging machine does probing)
+  - MANUAL   (operator does jogging and then probing by manually reading saving values (PRESS READ))
 
 - **TOOL HOLDER**
-  - ER COLLET
-  - TOOL HOLDER
+  - ER COLLET     ( assumes tool length can change after every tool change)
+  - TOOL HOLDER    ( assumes a repeatable holder length.)
 
 - **REMEMBER TOOL**
-  - ON / OFF
+  - ON / OFF    (Saves/restores the last loaded tool across power cycles so the machine can remember what tool is in the spindle.)
 
 - **TOOL SETTER**
-  - ON / OFF
+  - ON / OFF    (Enables use of the physical tool setter and allows the MEASURE function for the loaded tool.)
 
-- **COOL / VAC**
-  - COOLANT
-  - VACUUM
+- **SLOW JOG F**
+  - [200][300][500][700][1000][1200] preselected values for slow jog feedrate
+
+- **COOL / VAC**  
+  - COOLANT  (shows COOLANT label on button)
+  - VACUUM   (shows vacuum label on button)
 
 - **CUSTOM 1**
   - assigned macro
@@ -437,11 +471,14 @@ v3-7.0c
 
 | PanelDue model | Download |
 | --- | --- |
-| **v3 5.0"** | [Download latest](last%20versions%20compiled/paneldue_MODERN_UI_v3_5_v22092026_2.bin) |
-| **v3 7.0"** | [Download latest](last%20versions%20compiled/paneldue_MODERN_UI_v3_7_v22092026_2.bin) |
-| **v3 7.0c** | [Download latest](last%20versions%20compiled/paneldue_MODERN_UI_v3_7_C_v22092026_2.bin) |
-| **5.0i** | [Download latest](last%20versions%20compiled/paneldue_MODERN_UI_5_i_v22092026_2.bin) |
-| **7.0i** | [Download latest](last%20versions%20compiled/paneldue_MODERN_UI_7_i_v22092026_2.bin) |
+- [PanelDue v3 5.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc1.bin)
+- [PanelDue v3 7.0](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc1.bin)
+- [PanelDue v3 7.0C](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0c-rc1.bin)
+- [PanelDue 5.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc1.bin)
+- [PanelDue 7.0i](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc1.bin)
+
+
+IF links dont work latest builds are stored in "latest version compiled"  folder
 
 
 
