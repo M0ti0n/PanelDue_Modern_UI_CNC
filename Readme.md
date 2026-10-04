@@ -449,8 +449,10 @@ Implemented hardware rotary dial support and safy mechanics to prevent accidenta
 
 How it behaves
 
-Wheel asleep: turning does nothing, and a bump doesn't keep any selection alive. A press wakes it, and the AXIS label on CONTROL then reads "AXIS - WHEEL ON" in accent colour.
-Wheel awake: each click jogs the chosen axis by ± the selected step, using RAPID or SLOW as chosen on the page (SLOW uses your SLOW jog feed). A press puts it back to sleep.
+Wheel asleep: turning does nothing, and a bump doesn't keep any selection alive. There are two ways to wake up the wheel.
+1.Adding a separate momentary button between X4 pin 1 and ground. Similar to so called dead man switch but you dont need to hold it. it will activate wheel for 5 seconds. 
+2.Selecting Axis wakes it, and the AXIS label on CONTROL then reads "AXIS - WHEEL ON" in accent colour.
+Wheel awake: each click jogs the chosen axis by ± the selected step, using RAPID or SLOW as chosen on the page (SLOW uses your SLOW jog feed). A press on a momentary button or on screen confirmation puts it back to sleep.
 Safe defaults:
 No axis is chosen at power-up (X is no longer preselected).
 Turning with no axis chosen gives "Select an axis first."
