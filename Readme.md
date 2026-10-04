@@ -468,6 +468,31 @@ The wheel is only active on CONTROL with no popup open, so message boxes from RR
 It also sleeps when a job is running or the panel is disconnected.
 Pausing a job lets it work again, like the rest of the page.
 
+
+## Wiring rotary dial
+
+Where the dial plugs in: connector X4 on the PanelDue
+
+On the PanelDue 5i and 7i, X4 has five pins numbered from the left: pin 1 is PB6 (the push button), pin 2 is PA2 (encoder A), pin 3 is PA3 (encoder B), pin 4 is +3.3 V and pin 5 is ground, the encoder's common pin. These are the same pins the firmware uses (PA2, PA3, PB6). 
+github
+
+Wiring for a normal mechanical encoder with a push button (EC11 style, as in most handwheel pendants):
+
+Encoder    PanelDue X4
+A    pin 2 (PA2)
+B    pin 3 (PA3)
+Common (C)    pin 5 (ground)
+Button, one contact    pin 1 (PB6)
+Button, other contact    pin 5 (ground)
+No resistors needed: the driver turns on the internal pull-ups for all three pins, which I checked in your source. A press pulls PB6 to ground.
+Pin 4 (+3.3 V): leave it unconnected for a mechanical encoder. It is only for encoders with electronics.
+Voltage: use 3.3 V only. Never put 5 V on these pins.
+Optional: a 10 nF capacitor from A and B to ground can help with noise on a long cable. Keep the cable short.
+Which end is which: if the wheel turns the wrong way, swap A and B, or set EncoderPulsesPerClick = -4 in the firmware.
+Check your PanelDue first: I couldn't confirm the connector type or pitch of X4 on your unit. Look at the board and confirm it is fitted before ordering parts.
+Mainboards: the usual PanelDue connection
+
+
     
 ## Software Compatibility 
 
