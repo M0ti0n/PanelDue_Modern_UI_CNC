@@ -896,10 +896,7 @@ namespace UI
 			lastEncoderRead = SystemTick::GetTickCount();
 			const int clicks = e->GetChange();
 			const bool pressed = e->GetButtonPress();
-			if (clicks != 0 || pressed)
-			{
-				CncControl::Wheel(clicks, pressed);
-			}
+			CncControl::Wheel(clicks, pressed, e->IsButtonDown());	// every interval: it also times the 1 s hold
 		}
 #endif
 	}

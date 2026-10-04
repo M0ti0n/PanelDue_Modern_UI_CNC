@@ -86,6 +86,9 @@ namespace
 	bool axisChosen = false;							// no axis is chosen at power-up
 	bool wheelActive = false;
 	int wheelContext = 0;								// 0 nothing, 1 CONTROL, 2 jog prompt (set by Spin)
+	constexpr uint32_t HoldConfirmMs = 1000;			// jog prompt: hold the button this long to answer OK
+	bool holdArmed = false;
+	uint32_t holdStart = 0;
 	uint32_t lastActivity = 0;
 	StaticTextField *axisLabel = nullptr;
 
@@ -174,6 +177,7 @@ namespace
 			UpdateMoveLabels();
 		}
 		wheelActive = false;
+		holdArmed = false;
 		UpdateWheelLabel();
 	}
 
@@ -442,11 +446,12 @@ namespace CncControl
 		}
 	}
 
-	void Wheel(int clicks, bool pressed)
+	void Wheel(int clicks, bool pressed, bool down)
 	{
 		const bool inPrompt = (wheelContext == 2);
 		if (wheelContext == 0 || (!inPrompt && lockAll) || GetStatus() == OM::PrinterStatus::connecting)
 		{
+			holdArmed = false;
 			if (wheelActive)
 			{
 				wheelActive = false;
@@ -454,17 +459,50 @@ namespace CncControl
 			}
 			return;
 		}
+		const uint32_t now = SystemTick::GetTickCount();
+		if (!down)
+		{
+			holdArmed = false;								// released before the hold time: nothing
+		}
 		if (pressed)
 		{
-			const bool wasActive = wheelActive;
-			wheelActive = !wheelActive;						// wake up / done
-			lastActivity = SystemTick::GetTickCount();
-			UpdateWheelLabel();
-			if (wasActive && inPrompt)
+			lastActivity = now;
+			if (!inPrompt)
 			{
-				CncProbe::JogWheelOk();						// press while awake in the prompt: OK
+				wheelActive = !wheelActive;					// CONTROL: wake up / done
+				UpdateWheelLabel();
+			}
+			else if (!wheelActive)
+			{
+				wheelActive = true;							// jog prompt: this press only wakes the dial
+				UpdateWheelLabel();
+			}
+			else
+			{
+				holdArmed = true;							// awake: hold 1 s to answer OK
+				holdStart = now;
 			}
 			return;
+		}
+		if (holdArmed && down)
+		{
+			if (clicks != 0)
+			{
+				holdArmed = false;							// turning while pressing: not a confirm
+			}
+			else if (now - holdStart >= HoldConfirmMs)
+			{
+				holdArmed = false;
+				wheelActive = false;
+				UpdateWheelLabel();
+				CncProbe::JogWheelOk();						// held for 1 s: OK
+				return;
+			}
+			else
+			{
+				lastActivity = now;							// still holding: keep the dial awake
+				return;
+			}
 		}
 		if (clicks == 0 || !wheelActive)
 		{

@@ -22,8 +22,10 @@ namespace CncControl
 	// Hardware dial (rotary encoder). clicks = turn since the last call (+ right, - left), pressed = the
 	// button was pressed. It is asleep until a press wakes it. Awake, a turn jogs like the - / + buttons of
 	// the screen showing (CONTROL: chosen axis x STEP, RAPID or SLOW; jog prompt: its axis x STEP, SLOW JOG F
-	// feed). A press while awake ends it on CONTROL and answers OK in the jog prompt.
-	void Wheel(int clicks, bool pressed);
+	// feed). A press while awake ends it on CONTROL. In the jog prompt a press wakes it, and holding the button
+	// for 1 second while awake answers OK (a short press does nothing, turning cancels the hold).
+	// pressed = button went down since the last call, down = button is held now. Call it every interval.
+	void Wheel(int clicks, bool pressed, bool down);
 
 	// Called from the UI spin loop. context = what the dial would act on: 0 nothing (other page, other popup),
 	// 1 CONTROL, 2 the jog prompt. A change of context puts the dial to sleep. Also the idle timeout: 5 s without

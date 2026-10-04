@@ -34,6 +34,7 @@ public:
 	int GetChange() noexcept;
 	bool GetButtonPress() noexcept;
 	int GetPulsesPerClick() const noexcept { return ppc; }
+	bool IsButtonDown() const noexcept { return buttonState; }		// debounced: true while the button is held
 };
 
 #endif
