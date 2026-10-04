@@ -449,8 +449,10 @@ Implemented hardware rotary dial support and safy mechanics to prevent accidenta
 
 How it behaves
 
-Wheel asleep: turning does nothing, and a bump doesn't keep any selection alive. A press wakes it, and the AXIS label on CONTROL then reads "AXIS - WHEEL ON" in accent colour.
-Wheel awake: each click jogs the chosen axis by ± the selected step, using RAPID or SLOW as chosen on the page (SLOW uses your SLOW jog feed). A press puts it back to sleep.
+Wheel asleep: turning does nothing, and a bump doesn't keep any selection alive. There are two ways to wake up the wheel.
+1.Adding a separate momentary button between X4 pin 1 and ground. Similar to so called dead man switch but you dont need to hold it. it will activate wheel for 5 seconds. 
+2.Selecting Axis wakes it, and the AXIS label on CONTROL then reads "AXIS - WHEEL ON" in accent colour.
+Wheel awake: each click jogs the chosen axis by ± the selected step, using RAPID or SLOW as chosen on the page (SLOW uses your SLOW jog feed). A press on a momentary button or on screen confirmation puts it back to sleep.
 Safe defaults:
 No axis is chosen at power-up (X is no longer preselected).
 Turning with no axis chosen gives "Select an axis first."
@@ -467,6 +469,31 @@ Interlocks
 The wheel is only active on CONTROL with no popup open, so message boxes from RRF can't be hit by a turn.
 It also sleeps when a job is running or the panel is disconnected.
 Pausing a job lets it work again, like the rest of the page.
+
+
+## Wiring rotary dial
+
+Where the dial plugs in: connector X4 on the PanelDue
+
+On the PanelDue 5i and 7i, X4 has five pins numbered from the left: pin 1 is PB6 (the push button), pin 2 is PA2 (encoder A), pin 3 is PA3 (encoder B), pin 4 is +3.3 V and pin 5 is ground, the encoder's common pin. These are the same pins the firmware uses (PA2, PA3, PB6). 
+github
+
+Wiring for a normal mechanical encoder with a push button (EC11 style, as in most handwheel pendants):
+
+Encoder    PanelDue X4
+A    pin 2 (PA2)
+B    pin 3 (PA3)
+Common (C)    pin 5 (ground)
+Button, one contact    pin 1 (PB6)
+Button, other contact    pin 5 (ground)
+No resistors needed: the driver turns on the internal pull-ups for all three pins, which I checked in your source. A press pulls PB6 to ground.
+Pin 4 (+3.3 V): leave it unconnected for a mechanical encoder. It is only for encoders with electronics.
+Voltage: use 3.3 V only. Never put 5 V on these pins.
+Optional: a 10 nF capacitor from A and B to ground can help with noise on a long cable. Keep the cable short.
+Which end is which: if the wheel turns the wrong way, swap A and B, or set EncoderPulsesPerClick = -4 in the firmware.
+Check your PanelDue first: I couldn't confirm the connector type or pitch of X4 on your unit. Look at the board and confirm it is fitted before ordering parts.
+Mainboards: the usual PanelDue connection
+
 
     
 ## Software Compatibility 
