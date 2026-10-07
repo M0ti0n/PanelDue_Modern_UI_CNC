@@ -36,6 +36,7 @@
 #include "Hardware/SerialIo.hpp"
 #include "Hardware/SysTick.hpp"
 #include "PanelDue.hpp"
+#include "Icons/Icons.hpp"			// IconPaletteDark
 
 using namespace CncLayout;
 using namespace CncLayout::Control;
