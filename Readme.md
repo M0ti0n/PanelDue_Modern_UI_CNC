@@ -501,15 +501,14 @@ Mainboards: the usual PanelDue connection
 ### AXIS / ARROW SETUP A
 ![AXIS / ARROW SETUP A](docs/screenshots/PD-AXIS-ARROW_SETUP_A.png)
 
-### AXIS / ARROW SETUP B
-![AXIS / ARROW SETUP B](docs/screenshots/PD-AXIS-ARROW_SETUP_B.png)
-
-### AXIS / ARROW SETUP C
-![AXIS / ARROW SETUP C](docs/screenshots/PD-AXIS-ARROW_SETUP_C.png)
-
 
 Added arrows to move buttons on control and in pop up. Arrows can be mapped to specific axis in the settings on page 3 
-When axis gets activated the icons are drown on move buttons according to how are they mapped in settings.  
+When axis gets activated the icons are drown on move buttons according to how are they mapped in settings.
+
+
+It decides which of the two on-screen buttons is "+". Each axis has two buttons, left and right (or down and up, or 225° and 45°, or CCW and CW). With "+ →", the right button sends + and the left sends −. After flipping, the left button sends +. The G-code sent and the machine's behaviour for each + or − stay as the config defines.
+
+It's useful when the arrow you see should match the real motion from where you stand. On a mill where the table moves, "+X" can make the table travel left while the tool moves right relative to the part. Or you may stand at the back of the machine, so "forward" on the screen should be the other Y direction. The tile lets you place "+" on the side that matches what you see. If your arrows already match the motion, leave it alone.
 
 
     
