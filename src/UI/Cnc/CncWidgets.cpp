@@ -1142,3 +1142,205 @@ void CncAlertRow::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 	}
 	changed = false;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Jog icons
+// ---------------------------------------------------------------------------------------------
+namespace
+{
+	// sin(10 deg x i) x 1024
+	const int16_t JogSinTab[36] = { 0, 178, 350, 512, 658, 784, 887, 962, 1008, 1024, 1008, 962, 887, 784, 658, 512, 350, 178, 0, -178, -350, -512, -658, -784, -887, -962, -1008, -1024, -1008, -962, -887, -784, -658, -512, -350, -178 };
+
+	int JogSin(int deg)								// deg: a multiple of 10
+	{
+		deg %= 360;
+		if (deg < 0)
+		{
+			deg += 360;
+		}
+		return JogSinTab[deg / 10];
+	}
+
+	int JogCos(int deg)
+	{
+		return JogSin(deg + 90);
+	}
+
+	void TriEdge(int ax, int ay, int bx, int by, int y, int& xl, int& xr)
+	{
+		if ((ay <= y && by >= y) || (by <= y && ay >= y))
+		{
+			int lo, hi;
+			if (ay == by)
+			{
+				lo = (ax < bx) ? ax : bx;
+				hi = (ax < bx) ? bx : ax;
+			}
+			else
+			{
+				lo = hi = ax + ((bx - ax) * (y - ay)) / (by - ay);
+			}
+			if (lo < xl)
+			{
+				xl = lo;
+			}
+			if (hi > xr)
+			{
+				xr = hi;
+			}
+		}
+	}
+
+	void JogFillTriangle(int x0, int y0, int x1, int y1, int x2, int y2)
+	{
+		int ymin = y0, ymax = y0;
+		if (y1 < ymin) { ymin = y1; }
+		if (y2 < ymin) { ymin = y2; }
+		if (y1 > ymax) { ymax = y1; }
+		if (y2 > ymax) { ymax = y2; }
+		for (int y = ymin; y <= ymax; ++y)
+		{
+			int xl = 10000, xr = -10000;
+			TriEdge(x0, y0, x1, y1, y, xl, xr);
+			TriEdge(x1, y1, x2, y2, y, xl, xr);
+			TriEdge(x2, y2, x0, y0, y, xl, xr);
+			if (xl <= xr)
+			{
+				lcd.fillRect(xl, y, xr, y);
+			}
+		}
+	}
+
+	// A line drawn with a square brush of 2 x radius + 1 pixels
+	void JogStampLine(int x0, int y0, int x1, int y1, int radius)
+	{
+		const int dx = (x1 > x0) ? x1 - x0 : x0 - x1;
+		const int dy = (y1 > y0) ? y0 - y1 : y1 - y0;			// negative
+		const int sx = (x0 < x1) ? 1 : -1;
+		const int sy = (y0 < y1) ? 1 : -1;
+		int err = dx + dy;
+		for (;;)
+		{
+			lcd.fillRect(x0 - radius, y0 - radius, x0 + radius, y0 + radius);
+			if (x0 == x1 && y0 == y1)
+			{
+				break;
+			}
+			const int e2 = 2 * err;
+			if (e2 >= dy)
+			{
+				err += dy;
+				x0 += sx;
+			}
+			if (e2 <= dx)
+			{
+				err += dx;
+				y0 += sy;
+			}
+		}
+	}
+
+	// Arrow with a triangular head and a short stem, pointing in the direction (dx, dy) x 1000
+	void JogArrow(int cx, int cy, int size, int dx, int dy)
+	{
+		const int tipX = cx + (dx * size) / 2000, tipY = cy + (dy * size) / 2000;
+		const int tailX = cx - (dx * size) / 2000, tailY = cy - (dy * size) / 2000;
+		const int headLen = (size * 7) / 10, halfW = (size * 34) / 100;
+		const int bx = tipX - (dx * headLen) / 1000, by = tipY - (dy * headLen) / 1000;
+		const int px = -dy, py = dx;							// across the arrow, x 1000
+		JogFillTriangle(tipX, tipY, bx + (px * halfW) / 1000, by + (py * halfW) / 1000,
+						bx - (px * halfW) / 1000, by - (py * halfW) / 1000);
+		JogStampLine(bx, by, tailX, tailY, (size >= 40) ? 2 : 1);
+	}
+
+	// Counter-clockwise arrow on an arc (the clockwise one is its mirror image)
+	void JogArc(int cx, int cy, int size, bool mirror)
+	{
+		const int radius = (size * 38) / 100;
+		const int stroke = (size >= 40) ? 2 : 1;
+		int prevX = 0, prevY = 0;
+		bool have = false;
+		for (int a = 220; a <= 450; a += 10)
+		{
+			int px = cx + (radius * JogCos(a)) / 1024;
+			const int py = cy - (radius * JogSin(a)) / 1024;
+			if (mirror)
+			{
+				px = 2 * cx - px;
+			}
+			if (have)
+			{
+				JogStampLine(prevX, prevY, px, py, stroke);
+			}
+			prevX = px;
+			prevY = py;
+			have = true;
+		}
+		// Arrow head at the end of the arc (the top), pointing along the direction of travel
+		const int tx = -JogSin(450), ty = -JogCos(450);			// x 1024, screen coordinates
+		const int nx = -ty, ny = tx;
+		const int headLen = (size * 32) / 100, halfW = (size * 20) / 100;
+		int ex = cx + (radius * JogCos(450)) / 1024;
+		const int ey = cy - (radius * JogSin(450)) / 1024;
+		int tipX = ex + (tx * headLen) / 1024;
+		int c1x = ex + (nx * halfW) / 1024, c2x = ex - (nx * halfW) / 1024;
+		const int tipY = ey + (ty * headLen) / 1024;
+		const int c1y = ey + (ny * halfW) / 1024, c2y = ey - (ny * halfW) / 1024;
+		if (mirror)
+		{
+			ex = 2 * cx - ex;
+			tipX = 2 * cx - tipX;
+			c1x = 2 * cx - c1x;
+			c2x = 2 * cx - c2x;
+		}
+		JogFillTriangle(tipX, tipY, c1x, c1y, c2x, c2y);
+	}
+}
+
+void DrawJogIcon(JogIcon pair, bool plusIcon, int cx, int cy, int size, Colour c)
+{
+	lcd.setColor(c);
+	switch (pair)
+	{
+	case JogIcon::LeftRight:
+		JogArrow(cx, cy, size, plusIcon ? 1000 : -1000, 0);
+		break;
+	case JogIcon::DownUp:
+		JogArrow(cx, cy, size, 0, plusIcon ? -1000 : 1000);
+		break;
+	case JogIcon::Diag:
+		JogArrow(cx, cy, size, plusIcon ? 707 : -707, plusIcon ? -707 : 707);
+		break;
+	case JogIcon::Rotary:
+		JogArc(cx, cy, size, plusIcon);
+		break;
+	default:
+		break;
+	}
+}
+
+void CncJogButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
+{
+	const bool redraw = full || changed;
+	ModernTextButton::Refresh(full, xOffset, yOffset);
+	if (!redraw || pair == JogIcon::None)
+	{
+		return;
+	}
+	const int left = x + xOffset, top = y + yOffset;
+	const int h = GetHeight();
+	const int cy = top + h / 2;
+	const Colour c = pressed ? UTFT::fromRGB(18, 22, 28) : fcolour;		// dark with the text when selected / pressed
+	if (pairMode)
+	{
+		const int s = h - 28;
+		DrawJogIcon(pair, plusIcon, left + 14 + s / 2, cy, s, c);
+		DrawJogIcon(pair, !plusIcon, left + 14 + s + 10 + s / 2, cy, s, c);
+	}
+	else
+	{
+		const int s = h - 22;											// 30 px on a 52 px row, 34 px in the popup
+		const int cx = leftEdge ? left + 14 + s / 2 : left + (int)width - 14 - s / 2;
+		DrawJogIcon(pair, plusIcon, cx, cy, s, c);
+	}
+}

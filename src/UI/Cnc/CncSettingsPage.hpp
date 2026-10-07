@@ -24,6 +24,7 @@
 #define SRC_UI_CNC_CNCSETTINGSPAGE_HPP_
 
 #include <UI/Display.hpp>
+#include "CncWidgets.hpp"
 
 namespace CncSettings
 {
@@ -38,6 +39,8 @@ namespace CncSettings
 	void UpdateGlobal(const char *name, const char *data);	// global.cnc* from the machine
 	void GlobalsDone(bool complete);				// end of that reply (false: cut short)
 	bool ToolSetter();								// TOOL SETTER on (MEASURE is refused without)
+	JogIcon JogIconPair(size_t axis);				// icons bound to axis 0..3 (X Y Z A) for the - / + move buttons
+	bool JogIconReversed(size_t axis);				// REVERSE: the - button shows the + icon and the other way round
 	void OpenJogFeedPopup(bool fromControl);		// SLOW JOG FEEDRATE presets (also the F tile on CONTROL)
 
 	// LABEL keyboard (CUSTOM n): touches outside the sheet

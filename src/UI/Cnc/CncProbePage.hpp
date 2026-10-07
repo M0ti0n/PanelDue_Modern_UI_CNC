@@ -40,6 +40,7 @@ namespace CncProbe
 
 	// Hardware dial inside the jog prompt: a click does what the - / + buttons do (clicks x STEP, SLOW JOG F feed)
 	void JogWheel(int clicks);
+	void JogIconsChanged();								// the icon bindings (SETTINGS > JOG ICONS) changed
 	void JogWheelOk();									// dial press while awake: the prompt's OK / PROBE / READ
 	void SetJogWheelLook(bool awake);					// - / + in accent colour while the dial is awake
 	void AutoMessage(const char *title, const char *text);	// info message from the auto probe macro

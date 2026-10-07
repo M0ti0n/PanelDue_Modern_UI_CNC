@@ -54,6 +54,7 @@ namespace CncControl
 	void OpenSpindleNumpad();		// S tile: spindle speed (rpm)
 	void OpenFeedPopup();			// F tile: the SLOW JOG FEEDRATE presets (same popup as SETTINGS > SLOW JOG F)
 	void SelectSlow();				// RAPID / SLOW toggle to SLOW
+	void JogIconsChanged();			// the icon bindings (SETTINGS > JOG ICONS) changed
 	unsigned int JogFeed();			// SLOW jog feed, also used by the probe / M291 jog popup
 	void SetJogFeed(unsigned int feed);	// the machine's global.cncJogFeed arrived / was confirmed (SETTINGS > SLOW JOG F)
 }

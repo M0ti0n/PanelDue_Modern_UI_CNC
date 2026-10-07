@@ -36,6 +36,43 @@ public:
 };
 
 // DRO zero button: bordered tile with a small crosshair and the axis letter.
+// Jog icon pairs for the - / + move buttons: each pair has an icon for the - side and one for the + side
+enum class JogIcon : uint8_t { None, LeftRight, DownUp, Diag, Rotary };
+
+// Draws one icon of a pair (plusIcon = the + side: right / up / 45 degrees / CW), vector drawn, centred on
+// cx, cy and about 'size' px high. LeftRight: arrows, DownUp: arrows, Diag: 225 / 45 degree arrows,
+// Rotary: arrow on an arc, CCW for the - side and the mirrored CW for the + side.
+void DrawJogIcon(JogIcon pair, bool plusIcon, int cx, int cy, int size, Colour c);
+
+// A text button that also carries a jog icon at its outer edge (a - button on the left, a + button on the
+// right), or in pair mode (settings tile) both icons of the pair at the left. The text stays as it is.
+class CncJogButton : public ModernTextButton
+{
+	JogIcon pair = JogIcon::None;
+	bool plusIcon = false;				// which icon of the pair this button shows (pair mode: the first one)
+	bool leftEdge = true;
+	bool pairMode = false;
+
+	// With an icon at the outer edge the text is centred in the space beside it (the icon occupies 14 px of
+	// margin plus its own height - 22 px), not in the whole button: it is moved away from the icon by half of that.
+	void UpdateTextShift()
+	{
+		const int occupied = 14 + (int)GetHeight() - 22;
+		SetTextShift((pair == JogIcon::None || pairMode) ? 0 : (leftEdge ? occupied / 2 : -(occupied / 2)));
+	}
+
+public:
+	CncJogButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph,
+					const char * _ecv_array null pt, event_t e, int param = 0,
+					LcdFont pf = nullptr, bool borderVisible = false, TextAlignment pa = TextAlignment::Centre)
+		: ModernTextButton(py, px, pw, ph, pt, e, param, pf, borderVisible, pa) { }
+
+	void SetIcons(JogIcon p, bool plus) { if (p != pair || plus != plusIcon) { pair = p; plusIcon = plus; changed = true; } UpdateTextShift(); }
+	void SetOuterEdge(bool left) { leftEdge = left; UpdateTextShift(); }
+	void SetPairMode(bool on) { pairMode = on; UpdateTextShift(); }
+	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
+};
+
 class CncZeroButton : public SingleButton
 {
 	PixelNumber height;

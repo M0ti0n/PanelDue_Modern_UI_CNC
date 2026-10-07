@@ -474,6 +474,7 @@ private:
 	LcdFont font;
 	bool drawBorder;
 	TextAlignment alignment;
+	int16_t textShift = 0;								// centred text moved sideways by this many pixels (CNC jog buttons: beside the icon)
 
 protected:
 	PixelNumber GetHeight() const override { return height; }
@@ -486,6 +487,7 @@ public:
 	void SetText(const char * _ecv_array null pt);
 	void SetBorderVisible(bool visible) { if (drawBorder != visible) { drawBorder = visible; changed = true; } }
 	void SetBorderColour(Colour c) { if (borderColour != c) { borderColour = c; changed = true; } }
+	void SetTextShift(int dx) { if (textShift != dx) { textShift = (int16_t)dx; changed = true; } }
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
 };
 

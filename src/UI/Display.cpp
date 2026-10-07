@@ -734,7 +734,7 @@ void ModernTextButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 		}
 		else
 		{
-			tx = left + ((width > textWidth) ? (width - textWidth)/2 : 2);
+			tx = (PixelNumber)((int)left + (int)((width > textWidth) ? (width - textWidth)/2 : 2) + textShift);
 		}
 		const PixelNumber ty = top + ((height > fontHeight) ? (height - fontHeight)/2 : 0);
 		lcd.setTextPos(tx, ty, right - 3);
@@ -1163,6 +1163,37 @@ ModernIconButton::ModernIconButton(PixelNumber py, PixelNumber px, PixelNumber p
 	SetEvent(e, param);
 }
 
+// A line t pixels thick with round ends: a filled circle stamped at every pixel of the line. The thickness is
+// the same at any angle and nothing sticks out at the ends or at a joint where two strokes meet.
+static void DrawThickLine(int x0, int y0, int x1, int y1, int t)
+{
+	const int radius = t / 2;
+	const int dx = (x1 > x0) ? x1 - x0 : x0 - x1;
+	const int dy = (y1 > y0) ? y0 - y1 : y1 - y0;			// negative
+	const int sx = (x0 < x1) ? 1 : -1;
+	const int sy = (y0 < y1) ? 1 : -1;
+	int err = dx + dy;
+	for (;;)
+	{
+		lcd.fillCircle(x0, y0, radius);
+		if (x0 == x1 && y0 == y1)
+		{
+			break;
+		}
+		const int e2 = 2 * err;
+		if (e2 >= dy)
+		{
+			err += dy;
+			x0 += sx;
+		}
+		if (e2 <= dx)
+		{
+			err += dx;
+			y0 += sy;
+		}
+	}
+}
+
 void ModernIconButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 {
 	if (!full && !changed)
@@ -1194,26 +1225,24 @@ void ModernIconButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 		const int cx = static_cast<int>(left + width / 2);
 		const int cy = static_cast<int>(top + height / 2);
 		const int span = static_cast<int>((width < height) ? width : height);
-		const int r = span / 2 - 12;
+		// Stroke 9 px (was 3) and the whole glyph 75% of its old size (25% smaller): the old half-size was
+		// span / 2 - 12 plus 1 px of stroke; the new one is 3/4 of that, round ends included.
+		const int stroke = 9;
+		const int extent = ((span / 2 - 12 + 2) * 3) / 4;			// half-size of the glyph incl. stroke
+		const int r = extent - stroke / 2;							// half-length of the strokes themselves
 		lcd.setColor(fcolour);
 		if (icon == IconCancel)
 		{
-			for (int o = -1; o <= 1; ++o)
-			{
-				lcd.drawLine(cx - r + o, cy - r, cx + r + o, cy + r);
-				lcd.drawLine(cx - r, cy - r + o, cx + r, cy + r + o);
-				lcd.drawLine(cx + r + o, cy - r, cx - r + o, cy + r);
-				lcd.drawLine(cx + r, cy - r + o, cx - r, cy + r + o);
-			}
+			DrawThickLine(cx - r, cy - r, cx + r, cy + r, stroke);
+			DrawThickLine(cx + r, cy - r, cx - r, cy + r, stroke);
 		}
 		else
 		{
-			const int shortArm = static_cast<int>(r * 0.7);
-			for (int o = -1; o <= 1; ++o)
-			{
-				lcd.drawLine(cx - shortArm, cy + o, cx - shortArm / 3, cy + r + o);
-				lcd.drawLine(cx - shortArm / 3, cy + r + o, cx + r, cy - r + o);
-			}
+			const int shortArm = (r * 7) / 10;
+			const int vx = cx - shortArm / 3;						// the bottom point of the check
+			const int vy = cy + r;
+			DrawThickLine(cx - shortArm, cy, vx, vy, stroke);
+			DrawThickLine(vx, vy, cx + r, cy - r, stroke);
 		}
 		changed = false;
 		return;

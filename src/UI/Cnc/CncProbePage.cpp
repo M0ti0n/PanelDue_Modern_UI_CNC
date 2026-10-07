@@ -44,6 +44,7 @@
 #include "CncWidgets.hpp"
 #include "CncPopups.hpp"
 #include "CncControlPage.hpp"
+#include "CncSettingsPage.hpp"
 #include <UI/UserInterface.hpp>
 #include "Hardware/SerialIo.hpp"
 #include "PanelDue.hpp"
@@ -302,7 +303,7 @@ namespace
 	CncGlyphField *jogSideGlyph;
 	ModernTextButton *jogAxisButtons[4];
 	ModernTextButton *jogStepButtons[4];
-	ModernTextButton *jogMinus, *jogPlus;
+	CncJogButton *jogMinus = nullptr, *jogPlus = nullptr;
 	ModernIconButton *jogCancel;
 	ModernTextButton *jogOk;
 	ButtonBase *jogSelectedAxis = nullptr, *jogSelectedStep = nullptr;
@@ -416,9 +417,10 @@ namespace
 			jogPopup->AddField(jogStepButtons[i]);
 		}
 		const PixelNumber jw = (W - 12) / 2;
-		jogMinus = new ModernTextButton(220, L, jw, 56, "", evCncProbeJogMove, -1, glcd28x32, true);
+		jogMinus = new CncJogButton(220, L, jw, 56, "", evCncProbeJogMove, -1, glcd28x32, true);
 		jogPopup->AddField(jogMinus);
-		jogPlus = new ModernTextButton(220, L + jw + 12, jw, 56, "", evCncProbeJogMove, 1, glcd28x32, true);
+		jogPlus = new CncJogButton(220, L + jw + 12, jw, 56, "", evCncProbeJogMove, 1, glcd28x32, true);
+		jogPlus->SetOuterEdge(false);							// the + icon sits at the right edge
 		jogPopup->AddField(jogPlus);
 
 		// X (M292 P1) and PROBE / READ / OK (M292 P0)
@@ -430,12 +432,34 @@ namespace
 		jogPopup->AddField(jogOk);
 	}
 
+	// The icons bound to the chosen axis of the jog prompt (SETTINGS > JOG ICONS)
+	void UpdateJogIcons()
+	{
+		if (jogMinus == nullptr || jogPlus == nullptr)
+		{
+			return;
+		}
+		JogIcon pair = JogIcon::None;
+		bool rev = false;
+		if (jogNumAxes != 0 && jogAxis < jogNumAxes)
+		{
+			const size_t letter = jogAxisIndex[jogAxis];
+			pair = CncSettings::JogIconPair(letter);
+			rev = CncSettings::JogIconReversed(letter);
+		}
+		jogMinus->SetIcons(pair, rev);
+		jogPlus->SetIcons(pair, !rev);
+	}
+
 	void UpdateJogMoveLabels()
 	{
-		jogMinusText.printf("- %s", JogStepNames[jogStep]);
-		jogPlusText.printf("+ %s", JogStepNames[jogStep]);
+		// the A axis moves in degrees (the degree sign is 2 bytes of UTF-8)
+		const char * const deg = (jogNumAxes != 0 && jogAxis < jogNumAxes && jogAxisIndex[jogAxis] == 3) ? "\xC2\xB0" : "";
+		jogMinusText.printf("- %s%s", JogStepNames[jogStep], deg);
+		jogPlusText.printf("+ %s%s", JogStepNames[jogStep], deg);
 		jogMinus->SetText(jogMinusText.c_str());
 		jogPlus->SetText(jogPlusText.c_str());
+		UpdateJogIcons();
 	}
 
 	CncOrigin SideGlyph(char side)
@@ -688,6 +712,7 @@ namespace CncProbe
 			{
 				jogAxis = (size_t)bp.GetIParam();
 				Select(jogSelectedAxis, bp.GetButton());
+				UpdateJogMoveLabels();						// icons and the degree sign follow the axis
 			}
 			return true;
 
@@ -960,6 +985,11 @@ namespace CncProbe
 		{
 			SetAutoStatus(text);
 		}
+	}
+
+	void JogIconsChanged()
+	{
+		UpdateJogIcons();
 	}
 
 	bool JogPromptOpen()

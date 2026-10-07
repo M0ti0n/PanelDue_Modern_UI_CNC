@@ -58,7 +58,7 @@ namespace
 
 	const Colour ButtonText = UTFT::fromRGB(36, 36, 36);
 
-	constexpr size_t NumPages = 2;
+	constexpr size_t NumPages = 3;
 	DisplayField *pageRoots[NumPages];
 	size_t currentPage = 0;
 
@@ -103,6 +103,9 @@ namespace
 	enum CustomAction : uint8_t { CMacro, CLabel, CClear };
 
 	constexpr size_t MaxLabel = 12;
+	// global.cncJogIcons: bits 0-2 X, 3-5 Y, 6-8 Z, 9-11 A = JogIcon pair (0 none, 1 left/right, 2 down/up,
+	// 3 225/45 degrees, 4 CCW/CW), bits 12-15 = REVERSE for X Y Z A. Default: X left/right, Y 225/45, Z down/up, A CCW/CW.
+	constexpr unsigned int DefaultJogIcons = 1 | (3 << 3) | (2 << 6) | (4 << 9);
 	constexpr unsigned int MaxJogFeedValue = 20000;			// mm/min: largest jog feed accepted from the machine
 	constexpr size_t MaxMacroPath = 63;
 	struct Machine
@@ -113,6 +116,7 @@ namespace
 		bool toolSetter = true;
 		bool auxVacuum = false;
 		unsigned int jogFeed = 300;						// SLOW jog feed, mm/min
+		unsigned int jogIcons = DefaultJogIcons;			// see above
 		String<MaxLabel> labels[NumCustomMacros];
 		String<MaxMacroPath> macros[NumCustomMacros];
 	} machine,
@@ -125,14 +129,14 @@ namespace
 	// ---- Writing sys/cnc-settings.g ----
 	enum class Global : uint8_t
 	{
-		ProbeMode, MeasureAfterChange, RememberTool, ToolSetter, AuxVacuum, JogFeed,
+		ProbeMode, MeasureAfterChange, RememberTool, ToolSetter, AuxVacuum, JogFeed, JogIcons,
 		Custom1Label, Custom1Macro, Custom2Label, Custom2Macro, Custom3Label, Custom3Macro,
 		Count
 	};
 	constexpr size_t NumGlobals = (size_t)Global::Count;
 	const char * const GlobalNames[NumGlobals] =
 	{
-		"cncProbeMode", "cncMeasureAfterChange", "cncRememberTool", "cncToolSetter", "cncAuxVacuum", "cncJogFeed",
+		"cncProbeMode", "cncMeasureAfterChange", "cncRememberTool", "cncToolSetter", "cncAuxVacuum", "cncJogFeed", "cncJogIcons",
 		"cncCustom1Label", "cncCustom1Macro", "cncCustom2Label", "cncCustom2Macro",
 		"cncCustom3Label", "cncCustom3Macro"
 	};
@@ -249,10 +253,52 @@ namespace
 	}
 
 	// Push the machine values to the pages that use them
+	// ---- JOG ICONS (page 3) ----
+	constexpr int JogItemBase = 100;						// MachineTouch item: base + 2 x axis (+ 1 = REVERSE)
+	const char * const JogPairNames[] = { "NONE", "LEFT/RIGHT", "DOWN/UP", "225\xC2\xB0/45\xC2\xB0", "CCW/CW" };
+	const char * const JogChoiceLabels[] = { "LEFT/RIGHT", "DOWN/UP", "225\xC2\xB0/45\xC2\xB0", "CCW/CW", "NONE" };
+	const char * const JogTitles[] = { "AXIS X ICONS", "AXIS Y ICONS", "AXIS Z ICONS", "AXIS A ICONS" };
+	const char JogAxisLetters[] = "XYZA";
+	CncJogButton *jogIconTiles[4] = { nullptr, nullptr, nullptr, nullptr };
+	ModernTextButton *jogRevTiles[4] = { nullptr, nullptr, nullptr, nullptr };
+	String<24> jogIconText[4];
+	String<16> jogRevText[4];
+
+	JogIcon PairOf(size_t axis)
+	{
+		const unsigned int v = (machine.jogIcons >> (3 * axis)) & 7;
+		return (v <= 4) ? (JogIcon)v : JogIcon::None;
+	}
+
+	bool ReverseOf(size_t axis)
+	{
+		return ((machine.jogIcons >> (12 + axis)) & 1) != 0;
+	}
+
+	void ApplyJogIcons()
+	{
+		for (size_t a = 0; a < 4; ++a)
+		{
+			const JogIcon p = PairOf(a);
+			const bool rev = ReverseOf(a);
+			if (jogIconTiles[a] != nullptr)
+			{
+				jogIconText[a].printf("%c  %s", JogAxisLetters[a], JogPairNames[(size_t)p]);
+				jogIconTiles[a]->SetText(jogIconText[a].c_str());
+				jogIconTiles[a]->SetIcons(p, rev);				// the first icon shown is the one the - button gets
+				jogRevText[a].printf("REVERSE %s", rev ? "ON" : "OFF");
+				jogRevTiles[a]->SetText(jogRevText[a].c_str());
+			}
+		}
+		CncControl::JogIconsChanged();
+		CncProbe::JogIconsChanged();
+	}
+
 	void ApplyMachine()
 	{
 		CncProbe::SetMode((CncProbe::Mode)machine.probeMode);
 		CncControl::SetJogFeed(machine.jogFeed);
+		ApplyJogIcons();
 		if (strcmp(AuxLabel(), machine.auxVacuum ? "VACUUM" : "COOLANT") != 0)
 		{
 			SetAuxLabel(machine.auxVacuum);
@@ -280,6 +326,7 @@ namespace
 		case Global::ToolSetter:			out.copy(machine.toolSetter ? "true" : "false"); break;
 		case Global::AuxVacuum:				out.copy(machine.auxVacuum ? "true" : "false"); break;
 		case Global::JogFeed:				out.printf("%u", machine.jogFeed); break;
+		case Global::JogIcons:				out.printf("%u", machine.jogIcons); break;
 		default:
 			{
 				const size_t k = (size_t)g - (size_t)Global::Custom1Label;
@@ -416,7 +463,7 @@ namespace
 	bool SameSettings(const Machine& a, const Machine& b)
 	{
 		if (a.probeMode != b.probeMode || a.measureAfterChange != b.measureAfterChange || a.rememberTool != b.rememberTool
-			|| a.toolSetter != b.toolSetter || a.auxVacuum != b.auxVacuum || a.jogFeed != b.jogFeed)
+			|| a.toolSetter != b.toolSetter || a.auxVacuum != b.auxVacuum || a.jogFeed != b.jogFeed || a.jogIcons != b.jogIcons)
 		{
 			return false;
 		}
@@ -730,6 +777,13 @@ namespace
 		}
 	}
 
+	void JogIconsChosen(int axis, size_t choice)
+	{
+		const unsigned int pair = (unsigned int)((choice + 1) % 5);		// the popup lists NONE last
+		machine.jogIcons = (machine.jogIcons & ~(7u << (3 * axis))) | (pair << (3 * axis));
+		MachineChanged(Bit(Global::JogIcons));
+	}
+
 	bool MachineTouch(ButtonPress bp)
 	{
 		const size_t item = (size_t)bp.GetIParam();
@@ -773,6 +827,21 @@ namespace
 			break;
 
 		default:
+			if ((int)item >= JogItemBase && (int)item < JogItemBase + 8)
+			{
+				const size_t axis = (size_t)((int)item - JogItemBase) / 2;
+				if (((int)item - JogItemBase) % 2 == 0)
+				{
+					CncPopup::Choose(JogTitles[axis], JogChoiceLabels, ARRAY_SIZE(JogChoiceLabels), ((size_t)PairOf(axis) + 4) % 5,
+										nullptr, JogIconsChosen, (int)axis, false, 2);
+				}
+				else
+				{
+					machine.jogIcons ^= (1u << (12 + axis));				// REVERSE
+					MachineChanged(Bit(Global::JogIcons));
+				}
+				break;
+			}
 			if (item >= MCustom1 && item <= MCustom3)
 			{
 				customSlot = item - MCustom1;
@@ -836,7 +905,7 @@ namespace CncSettings
 		DisplayField * const baseRoot = mgr.GetRoot();
 
 		// Page 1: SYSTEM (panel)
-		AddPageCommon(0, "SYSTEM", "PAGE 1 / 2");
+		AddPageCommon(0, "SYSTEM", "PAGE 1 / 3");
 		for (unsigned int i = 0; i < NumPanelTiles; ++i)
 		{
 			ModernTextButton * const b = AddTile(i, PanelLabels[i], PanelEvents[i], 0);
@@ -854,7 +923,7 @@ namespace CncSettings
 
 		// Page 2: CUSTOMIZATION (machine)
 		mgr.SetRoot(baseRoot);
-		AddPageCommon(1, "CUSTOMIZATION", "PAGE 2 / 2");
+		AddPageCommon(1, "CUSTOMIZATION", "PAGE 2 / 3");
 		for (unsigned int i = 0; i < NumMachineTiles; ++i)
 		{
 			ModernTextButton * const b = AddTile(i, MachineLabels[i], evCncMachineSetting, (int)i);
@@ -868,6 +937,25 @@ namespace CncSettings
 			}
 		}
 		pageRoots[1] = mgr.GetRoot();
+
+		// Page 3: JOG ICONS (machine): one row per axis, the icons of its - / + move buttons and REVERSE
+		mgr.SetRoot(baseRoot);
+		AddPageCommon(2, "JOG ICONS", "PAGE 3 / 3");
+		constexpr PixelNumber JogIconW = 300, JogRevW = ContentW - JogIconW - ColGap;
+		for (unsigned int a = 0; a < 4; ++a)
+		{
+			const PixelNumber y = TileY(2 * a);
+			DisplayField::SetDefaultFont(glcd19x21);
+			DisplayField::SetDefaultColours(Text, Tile, Border, Tile, Accent(), Accent(), IconPaletteDark);
+			jogIconTiles[a] = new CncJogButton(y, ColX(0), JogIconW, TileH, "", evCncMachineSetting, JogItemBase + 2 * (int)a,
+												glcd19x21, true, TextAlignment::Right);
+			jogIconTiles[a]->SetPairMode(true);
+			mgr.AddField(jogIconTiles[a]);
+			jogRevTiles[a] = new ModernTextButton(y, ColX(0) + JogIconW + ColGap, JogRevW, TileH, "", evCncMachineSetting,
+													JogItemBase + 2 * (int)a + 1, glcd19x21, true);
+			mgr.AddField(jogRevTiles[a]);
+		}
+		pageRoots[2] = mgr.GetRoot();
 
 		DisplayField::SetDefaultFont(DEFAULT_FONT);
 		ShowRam(true);
@@ -885,7 +973,15 @@ namespace CncSettings
 		const Event ev = (Event)bp.GetEvent();
 		if (ev == evCncSettingsPage)
 		{
-			const size_t page = (bp.GetIParam() < 0) ? 0 : 1;
+			size_t page = currentPage;
+			if (bp.GetIParam() < 0)
+			{
+				page = (currentPage > 0) ? currentPage - 1 : 0;
+			}
+			else if (currentPage + 1 < NumPages)
+			{
+				page = currentPage + 1;
+			}
 			if (page != currentPage)
 			{
 				currentPage = page;
@@ -1000,6 +1096,15 @@ namespace CncSettings
 		case Global::RememberTool:			if (ParseBool(data, b)) { incoming.rememberTool = b; } break;
 		case Global::ToolSetter:			if (ParseBool(data, b)) { incoming.toolSetter = b; } break;
 		case Global::AuxVacuum:				if (ParseBool(data, b)) { incoming.auxVacuum = b; } break;
+		case Global::JogIcons:
+			{
+				const long v = atol(data);
+				if (v >= 0 && v <= 0xFFFF)
+				{
+					incoming.jogIcons = (unsigned int)v;
+				}
+			}
+			break;
 		case Global::JogFeed:
 			{
 				const long f = atol(data);
@@ -1030,6 +1135,16 @@ namespace CncSettings
 	bool ToolSetter()
 	{
 		return machine.toolSetter;
+	}
+
+	JogIcon JogIconPair(size_t axis)
+	{
+		return (axis < 4) ? PairOf(axis) : JogIcon::None;
+	}
+
+	bool JogIconReversed(size_t axis)
+	{
+		return (axis < 4) && ReverseOf(axis);
 	}
 
 	void OpenJogFeedPopup(bool fromControl)

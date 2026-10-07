@@ -64,7 +64,7 @@ namespace
 
 	ModernTextButton *axisButtons[MaxJogAxes];
 	ModernTextButton *stepButtons[NumSteps];
-	ModernTextButton *moveMinus, *movePlus;
+	CncJogButton *moveMinus = nullptr, *movePlus = nullptr;
 	CncSegmentButton *feedMode;
 	ModernTextButton *auxButton, *safeZButton, *xy0Button;
 
@@ -118,6 +118,34 @@ namespace
 		}
 	}
 
+	// The step on the - / + buttons; with the A axis chosen it is in degrees (the degree sign is 2 bytes of UTF-8)
+	void UpdateMoveLabels()
+	{
+		if (moveMinus == nullptr || movePlus == nullptr)
+		{
+			return;
+		}
+		const char * const deg = (axisChosen && currentAxis == 3) ? "\xC2\xB0" : "";
+		minusText.printf("- %s%s", StepNames[currentStep], deg);
+		plusText.printf("+ %s%s", StepNames[currentStep], deg);
+		moveMinus->SetText(minusText.c_str());
+		movePlus->SetText(plusText.c_str());
+	}
+
+	// The icons of the - / + buttons: those bound to the chosen axis (none while no axis is chosen)
+	void UpdateMoveIcons()
+	{
+		if (moveMinus == nullptr || movePlus == nullptr)
+		{
+			return;
+		}
+		const JogIcon pair = axisChosen ? CncSettings::JogIconPair(currentAxis) : JogIcon::None;
+		const bool rev = axisChosen && CncSettings::JogIconReversed(currentAxis);
+		moveMinus->SetIcons(pair, rev);
+		movePlus->SetIcons(pair, !rev);
+		UpdateMoveLabels();									// degrees while the A axis is chosen
+	}
+
 	void ClearAxisSelection()
 	{
 		if (selectedAxis != nullptr)
@@ -126,6 +154,7 @@ namespace
 			selectedAxis = nullptr;
 		}
 		axisChosen = false;
+		UpdateMoveIcons();
 	}
 
 	void UpdateWheelLabel()
@@ -156,14 +185,6 @@ namespace
 		{
 			ClearAxisSelection();						// the chosen axis is not on the page any more
 		}
-	}
-
-	void UpdateMoveLabels()
-	{
-		minusText.printf("- %s", StepNames[currentStep]);
-		plusText.printf("+ %s", StepNames[currentStep]);
-		moveMinus->SetText(minusText.c_str());
-		movePlus->SetText(plusText.c_str());
 	}
 
 	// Idle timeout: no axis, default step, wheel asleep
@@ -377,8 +398,12 @@ namespace CncControl
 		// MOVE row
 		{
 			const PixelNumber w = (LeftW - ColGap) / 2;
-			moveMinus = AddButton(RowMoveY, LeftX, w, RowH, "-", evCncMove, -1, glcd28x32);
-			movePlus = AddButton(RowMoveY, LeftX + w + ColGap, w, RowH, "+", evCncMove, 1, glcd28x32);
+			DisplayField::SetDefaultColours(Text, Tile, Border, Tile, accent, accent, IconPaletteDark);
+			moveMinus = new CncJogButton(RowMoveY, LeftX, w, RowH, "-", evCncMove, -1, glcd28x32, true);
+			mgr.AddField(moveMinus);
+			movePlus = new CncJogButton(RowMoveY, LeftX + w + ColGap, w, RowH, "+", evCncMove, 1, glcd28x32, true);
+			movePlus->SetOuterEdge(false);					// the + icon sits at the right edge
+			mgr.AddField(movePlus);
 		}
 
 		// ACTION grid, 3 x 2: RAPID / SLOW is one tall toggle over both rows of the first column
@@ -422,6 +447,11 @@ namespace CncControl
 		UpdateHomeColours();
 
 		return mgr.GetRoot();
+	}
+
+	void JogIconsChanged()
+	{
+		UpdateMoveIcons();
 	}
 
 	void Spin(int context)
@@ -570,6 +600,7 @@ namespace CncControl
 			axisChosen = true;
 			lastActivity = SystemTick::GetTickCount();
 			Select(selectedAxis, bp.GetButton());
+			UpdateMoveIcons();
 			return true;
 
 		case evCncStep:
