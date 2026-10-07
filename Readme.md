@@ -497,11 +497,15 @@ Mainboards: the usual PanelDue connection
 
 ## RC3 notes
 
-https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_A.png
 
-https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_B.png
+### AXIS / ARROW SETUP A
+![AXIS / ARROW SETUP A](docs/screenshots/PD-AXIS-ARROW_SETUP_A.png)
 
-https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_C.png
+### AXIS / ARROW SETUP B
+![AXIS / ARROW SETUP B](docs/screenshots/PD-AXIS-ARROW_SETUP_B.png)
+
+### AXIS / ARROW SETUP C
+![AXIS / ARROW SETUP C](docs/screenshots/PD-AXIS-ARROW_SETUP_C.png)
 
 
 Added arrows to move buttons on control and in pop up. Arrows can be mapped to specific axis in the settings on page 3 
