@@ -495,6 +495,19 @@ Check your PanelDue first: I couldn't confirm the connector type or pitch of X4 
 Mainboards: the usual PanelDue connection
 
 
+## RC3 notes
+
+https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_A.png
+
+https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_B.png
+
+https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/docs/screenshots/PD-AXIS-ARROW_SETUP_C.png
+
+
+Added arrows to move buttons on control and in pop up. Arrows can be mapped to specific axis in the settings on page 3 
+When axis gets activated the icons are drown on move buttons according to how are they mapped in settings.  
+
+
     
 ## Software Compatibility 
 
