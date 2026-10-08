@@ -53,6 +53,8 @@ namespace
 	constexpr PixelNumber LinePitch = 36, LineH = 21;
 	constexpr PixelNumber ActW = 110, ActH = 78, ActGap = 20, ActY = 376;
 	constexpr PixelNumber CancelX = (SW - 2 * ActW - ActGap) / 2, OkX = CancelX + ActW + ActGap;
+	// Three actions (trash / X / check) when the trash button is shown
+	constexpr PixelNumber TrashX3 = (SW - 3 * ActW - 2 * ActGap) / 2, CancelX3 = TrashX3 + ActW + ActGap, OkX3 = CancelX3 + ActW + ActGap;
 	constexpr size_t MaxLines = 6;
 	constexpr size_t MaxChoices = 9;
 	constexpr PixelNumber ChoiceH = 60, ChoiceGapX = 10, ChoiceGapY = 12;
@@ -76,8 +78,9 @@ namespace
 
 	ConfirmHandler confirmHandler = nullptr;
 	ConfirmHandler cancelHandler = nullptr;
+	ConfirmHandler trashHandler = nullptr;
 	bool alertBackToNumpad = false;					// X on the ALERT reopens the numpad (value kept)
-	ModernIconButton *stdCancelButton, *stdOkButton;
+	ModernIconButton *stdCancelButton, *stdOkButton, *stdTrashButton;
 	constexpr PixelNumber WrapWidth = InfoW - 20;		// 390 px text width in the info tile
 	ChoiceHandler choiceHandler = nullptr;
 	ChoiceAllowed choiceAllowed = nullptr;
@@ -190,6 +193,12 @@ namespace
 			}
 		}
 
+		// Trash (hidden unless ConfirmDeletable): the Modern UI's delete button, dark icon on light blue
+		DisplayField::SetDefaultColours(UTFT::fromRGB(36, 36, 36), UTFT::fromRGB(95, 195, 220));
+		stdTrashButton = new ModernIconButton(ActY, TrashX3, ActW, ActH, IconTrash, evStatusJobDeleteOpen);
+		stdTrashButton->Show(false);
+		stdPopup->AddField(stdTrashButton);
+
 		// X / check
 		DisplayField::SetDefaultColours(ButtonText, StopRed);
 		stdCancelButton = new ModernIconButton(ActY, CancelX, ActW, ActH, IconCancel, evStandardPopupCancel);
@@ -275,6 +284,8 @@ namespace
 		choiceInstant = false;
 		selectedChoice = nullptr;
 		cancelHandler = nullptr;
+		trashHandler = nullptr;
+		stdTrashButton->Show(false);
 
 		// Default two-action layout (Message may switch to a single centred check mark,
 		// Alert to a single centred X)
@@ -541,6 +552,44 @@ namespace CncPopup
 			infoFields[i]->SetValue(lineText[i].c_str(), true);
 			infoFields[i]->Show(true);
 		}
+	}
+
+	void ConfirmDeletable(const char *title, const char *line1, const char *line2, const char *line3, const char *line4,
+							ConfirmHandler onOk, ConfirmHandler onTrash, int param)
+	{
+		const char * const lines[4] = { line1, line2, line3, line4 };
+		size_t n = 0;
+		while (n < 4 && lines[n] != nullptr)
+		{
+			++n;
+		}
+		FillInfo(title, lines, n);
+		confirmHandler = onOk;
+		choiceHandler = nullptr;
+		handlerParam = param;
+		trashHandler = onTrash;
+		stdTrashButton->SetPosition(TrashX3, ActY);
+		stdTrashButton->Show(true);
+		stdCancelButton->SetPosition(CancelX3, ActY);
+		stdOkButton->SetPosition(OkX3, ActY);
+		OpenPopup(stdPopup, Mode::Confirm);
+	}
+
+	void ConfirmWithCancel(const char *title, const char *line1, const char *line2, const char *line3, const char *line4,
+							ConfirmHandler onOk, ConfirmHandler onCancel, int param)
+	{
+		const char * const lines[4] = { line1, line2, line3, line4 };
+		size_t n = 0;
+		while (n < 4 && lines[n] != nullptr)
+		{
+			++n;
+		}
+		FillInfo(title, lines, n);
+		confirmHandler = onOk;
+		choiceHandler = nullptr;
+		handlerParam = param;
+		cancelHandler = onCancel;
+		OpenPopup(stdPopup, Mode::Confirm);
 	}
 
 	void ConfirmLines(const char *title, const char * const lines[], size_t n, ConfirmHandler onOk, int param)
@@ -982,6 +1031,16 @@ namespace CncPopup
 			}
 			return true;
 
+		case evStatusJobDeleteOpen:					// the trash button of ConfirmDeletable
+			if (mode == Mode::Confirm && trashHandler != nullptr)
+			{
+				const ConfirmHandler h = trashHandler;
+				const int param = handlerParam;
+				Close();								// before the handler, which opens the next question
+				h(param);
+			}
+			return true;
+
 		case evStandardPopupCancel:
 			if (mode == Mode::Alert && alertBackToNumpad)
 			{
@@ -990,7 +1049,7 @@ namespace CncPopup
 				return true;
 			}
 			{
-				const ConfirmHandler h = (mode == Mode::Message) ? cancelHandler : nullptr;
+				const ConfirmHandler h = (mode == Mode::Message || mode == Mode::Confirm) ? cancelHandler : nullptr;
 				const int param = handlerParam;
 				Close();
 				if (h != nullptr)
@@ -1066,6 +1125,7 @@ namespace CncPopup
 		case evCncFormItem:
 		case evStandardPopupConfirm:			// popup already closed
 		case evStandardPopupCancel:
+		case evStatusJobDeleteOpen:
 		case evNumericOk:
 		case evNumericCancel:
 			return true;

@@ -1177,6 +1177,58 @@ namespace
 		SerialIo::Sendf("\n");									// the job name comes from the machine once it runs
 	}
 
+	// M30 wants the path relative to the gcodes folder ("0:/gcodes/" is added by RRF), as the Modern UI sends it
+	const char *StripGcodesFolder(const char *dir)
+	{
+		if (strcmp(dir, "/gcodes") == 0 || strcmp(dir, "0:/gcodes") == 0)
+		{
+			return "";
+		}
+		if (strncmp(dir, "/gcodes/", 8) == 0)
+		{
+			return dir + 8;
+		}
+		if (strncmp(dir, "0:/gcodes/", 10) == 0)
+		{
+			return dir + 10;
+		}
+		return dir;
+	}
+
+	void ShowRunConfirm();
+
+	// ---- DELETE (the trash button of the RUN question, as in the Modern UI) ----
+	void DoDelete(int param)
+	{
+		UNUSED(param);
+		if (JobInProgress())
+		{
+			Refuse("A job is already running.");
+			return;
+		}
+		SerialIo::Sendf("M30 ");
+		SerialIo::SendFilename(CondStripDrive(StripGcodesFolder(runDir.c_str())), runName.c_str());
+		SerialIo::Sendf("\n");
+		RequestList();										// the list without the deleted job
+	}
+
+	void BackToRun(int param)
+	{
+		UNUSED(param);
+		ShowRunConfirm();									// X on the delete question: the RUN question again
+	}
+
+	void AskDelete(int param)
+	{
+		UNUSED(param);
+		CncPopup::ConfirmWithCancel("ALERT !", "Do you want to DELETE", "this job?", runName.c_str(), nullptr, DoDelete, BackToRun, 0);
+	}
+
+	void ShowRunConfirm()
+	{
+		CncPopup::ConfirmDeletable("ALERT !", "Do you want to RUN", "this job?", runName.c_str(), nullptr, DoRun, AskDelete, 0);
+	}
+
 	void AskRun(const char *name)
 	{
 		if (JobInProgress())
@@ -1196,7 +1248,7 @@ namespace
 		}
 		runDir.copy(FileManager::GetFilesDir());
 		runName.copy(name);
-		CncPopup::Confirm("ALERT !", "Do you want to RUN", "this job?", runName.c_str(), nullptr, DoRun, 0);
+		ShowRunConfirm();										// RUN question: trash / X / check
 	}
 
 	// ---- Keyboard ----

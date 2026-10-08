@@ -36,7 +36,7 @@
 #include "Hardware/SerialIo.hpp"
 #include "Hardware/SysTick.hpp"
 #include "PanelDue.hpp"
-#include "Icons/Icons.hpp"			// IconPaletteDark
+#include "Icons/Icons.hpp"						// IconPaletteDark, for the jog buttons' colours
 
 using namespace CncLayout;
 using namespace CncLayout::Control;

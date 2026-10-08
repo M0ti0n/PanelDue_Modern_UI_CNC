@@ -90,6 +90,15 @@ namespace CncPopup
 
 	void Numpad(const NumpadSpec& pad);
 
+	// Like Confirm, plus a trash button at the left, as in the Modern UI's job confirmation (fill and icon of the
+	// Modern UI delete button). onTrash(param) runs after the popup closed (it normally asks "delete?").
+	void ConfirmDeletable(const char *title, const char *line1, const char *line2, const char *line3, const char *line4,
+							ConfirmHandler onOk, ConfirmHandler onTrash, int param);
+
+	// Like Confirm, and the X also calls onCancel(param) after the popup closed (to go back to the previous question)
+	void ConfirmWithCancel(const char *title, const char *line1, const char *line2, const char *line3, const char *line4,
+							ConfirmHandler onOk, ConfirmHandler onCancel, int param);
+
 	// Form: up to 2 labelled groups of choice buttons in the standard popup.
 	// Single-pick group: exactly one item selected. Multi group: toggles, at least one on.
 	// The check mark is refused while a group has nothing selected.
