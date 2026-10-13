@@ -174,6 +174,40 @@ Depending on the selected probing mode, available parameters can include:
 - `0:/sys/probe/probe_semi.g`
 - `0:/sys/probe/probe_manual.g`
 
+You need only one macro per mode. The screen keeps calling the same three files (probe_auto.g, probe_semi.g, probe_manual.g), with or without I1 at the end:
+
+M98 P"0:/sys/probe/probe_auto.g" O"TL" D2.000 C5.000 S10.000 Z3.000 L100.000 B60.000 W1      ; outside
+M98 P"0:/sys/probe/probe_auto.g" O"TL" D2.000 C5.000 S10.000 Z3.000 L100.000 B60.000 W1 I1   ; inside
+
+Inside the macro, you check for I once near the top and use the result in the moves:
+
+var inside = exists(param.I) && param.I == 1
+var dir = var.inside ? -1 : 1      ; direction of the probing move
+var r   = param.D / 2              ; tip radius
+
+For each axis, two things flip between outside and inside. Take the X side of a top-left corner:
+
+	Outside (block)	Inside (pocket)
+Start position	left of the edge, outside the stock	right of the wall, inside the pocket
+Probe direction	+X, toward the edge	−X, toward the wall
+Edge position	trigger X + r	trigger X − r
+
+So the X step looks like this:
+
+G38.2 X{move.axes[0].machinePosition + var.dir * param.S}   ; probe toward the edge / wall
+var edgeX = move.axes[0].machinePosition + var.dir * var.r
+
+The Y side works the same way. Other things to handle with var.inside:
+
+Moving out of the pocket: you can’t move sideways over a pocket wall, so lift Z to the clearance height before moving between sides.
+Z on the inside: with INSIDE there is often no top surface under the probe at the start. Probe the top surface before entering the pocket, or skip Z there.
+Centre (CTR) with INSIDE: this means probe all four walls of a pocket, like a rectangular bore. Without I1 it means four outside edges, like a rectangular boss.
+BORE and BOSS: these never get I1, because the origin code already says inside or outside.
+
+If your macros currently ignore I, nothing breaks. INSIDE would just probe like OUTSIDE, which would crash the probe into the wall from the wrong side, so add the exists(param.I) check before using INSIDE on a machine.
+
+I can write a full probe_auto.g corner routine with both cases if you send me your current macro.
+
 ---
 
 # JOB
