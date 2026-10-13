@@ -237,7 +237,8 @@ enum Event : uint8_t
 	evCncToolSetZ,		// WCS > TOOLS: numpad for the selected tool's Z offset
 	evCncProbeOrigin,	// WCS > PROBE: pick an origin, iParam = CncOrigin
 	evCncProbeParam,	// WCS > PROBE: parameter tile, iParam = parameter id
-	evCncProbeRun,		// WCS > PROBE: RUN PROBE / START
+	evCncProbeRun,		// WCS > PROBE: PROBE / START
+	evCncProbeSide,		// WCS > PROBE: OUTSIDE | INSIDE toggle
 	evCncProbeJogAxis,	// probe / M291 jog popup: axis, iParam = axis index
 	evCncProbeJogStep,	// probe / M291 jog popup: step, iParam = step index
 	evCncProbeJogMove,	// probe / M291 jog popup: move, iParam = -1 / +1

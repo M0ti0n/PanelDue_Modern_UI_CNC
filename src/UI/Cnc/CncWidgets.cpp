@@ -401,9 +401,10 @@ namespace
 	}
 }
 
-void CncDrawOriginGlyph(CncOrigin kind, int cx, int cy, Colour col, Colour bg)
+void CncDrawOriginGlyph(CncOrigin kind, int cx, int cy, Colour col, Colour bg, bool inside)
 {
 	constexpr int off = 9, ln = 13, sw = 4, dot = 4;
+	constexpr int OutShift = 3;						// outside: the line moves inward so the dot stays within +-18 px (36 px glyph fields)
 	lcd.setColor(col);
 	switch (kind)
 	{
@@ -438,37 +439,43 @@ void CncDrawOriginGlyph(CncOrigin kind, int cx, int cy, Colour col, Colour bg)
 		return;
 
 	case CncOrigin::TC:
-	case CncOrigin::BC:								// top / bottom edge: bar, dot in its middle
+	case CncOrigin::BC:								// top / bottom edge: bar, the probe dot touching it from the outside or inside
 		{
-			const int yy = (kind == CncOrigin::TC) ? cy - off : cy + off;
+			const int outward = (kind == CncOrigin::TC) ? -1 : 1;
+			const int yy = cy + outward * (off - (inside ? 0 : OutShift));
 			ThickLine(cx - ln, yy, cx + ln, yy, sw);
-			lcd.fillCircle(cx, yy, dot);
+			lcd.fillCircle(cx, yy + (inside ? -outward : outward) * (sw / 2 + dot), dot);
 		}
 		return;
 
 	case CncOrigin::ML:
 	case CncOrigin::MR:								// left / right edge
 		{
-			const int xx = (kind == CncOrigin::ML) ? cx - off : cx + off;
+			const int outward = (kind == CncOrigin::ML) ? -1 : 1;
+			const int xx = cx + outward * (off - (inside ? 0 : OutShift));
 			ThickLine(xx, cy - ln, xx, cy + ln, sw);
-			lcd.fillCircle(xx, cy, dot);
+			lcd.fillCircle(xx + (inside ? -outward : outward) * (sw / 2 + dot), cy, dot);
 		}
 		return;
 
 	case CncOrigin::TL:
 	case CncOrigin::TR:
 	case CncOrigin::BL:
-	case CncOrigin::BR:								// corner: L shape, dot on the vertex
+	case CncOrigin::BR:								// corner: L shape, the probe dot outside the vertex or inside, touching the walls
 		{
 			const bool left = (kind == CncOrigin::TL || kind == CncOrigin::BL);
 			const bool topSide = (kind == CncOrigin::TL || kind == CncOrigin::TR);
-			const int xx = left ? cx - off : cx + off;
-			const int yy = topSide ? cy - off : cy + off;
+			const int o = off - (inside ? 0 : OutShift);
+			const int xx = left ? cx - o : cx + o;
+			const int yy = topSide ? cy - o : cy + o;
 			const int ex = xx + (left ? (ln + 4) : -(ln + 4));
 			const int ey = yy + (topSide ? (ln + 4) : -(ln + 4));
 			ThickLine(xx, ey, xx, yy, sw);
 			ThickLine(xx, yy, ex, yy, sw);
-			lcd.fillCircle(xx, yy, dot + 1);
+			const int ox = left ? -1 : 1;				// outward, away from the middle of the button
+			const int oy = topSide ? -1 : 1;
+			const int d = inside ? -(sw / 2 + dot + 1) : (dot + 2);
+			lcd.fillCircle(xx + ox * d, yy + oy * d, dot + 1);
 		}
 		return;
 
@@ -513,12 +520,12 @@ void CncOriginButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffse
 	const int cx = static_cast<int>(left + width / 2);
 	if (label != nullptr)
 	{
-		CncDrawOriginGlyph(kind, cx, static_cast<int>(top) + 28, glyph, bg);
+		CncDrawOriginGlyph(kind, cx, static_cast<int>(top) + 28, glyph, bg, inside);
 		PrintCentred(label, left + 2, right - 2, bottom - 26, 22, glyph);
 	}
 	else
 	{
-		CncDrawOriginGlyph(kind, cx, static_cast<int>(top + height / 2), glyph, bg);
+		CncDrawOriginGlyph(kind, cx, static_cast<int>(top + height / 2), glyph, bg, inside);
 	}
 	changed = false;
 }
@@ -539,7 +546,7 @@ void CncGlyphField::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 	const PixelNumber top = y + yOffset;
 	lcd.setColor(background);
 	lcd.fillRect(left, top, left + width - 1, top + height - 1);
-	CncDrawOriginGlyph(kind, static_cast<int>(left + width / 2), static_cast<int>(top + height / 2), glyph, background);
+	CncDrawOriginGlyph(kind, static_cast<int>(left + width / 2), static_cast<int>(top + height / 2), glyph, background, inside);
 	changed = false;
 }
 
@@ -643,13 +650,14 @@ void CncCheckField::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 	changed = false;
 }
 
-// ---- CncStatusTile ----
-CncStatusTile::CncStatusTile(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, const char *pCaption)
-	: DisplayField(py, px, pw), height(ph), caption(pCaption), value(""), outline(BorderCol)
+// ---- CncProbeButton ----
+CncProbeButton::CncProbeButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, const char *pText, event_t e, int param)
+	: SingleButton(py, px, pw), height(ph), text(pText)
 {
+	SetEvent(e, param);
 }
 
-void CncStatusTile::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
+void CncProbeButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 {
 	if (!full && !changed)
 	{
@@ -659,16 +667,45 @@ void CncStatusTile::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 	const PixelNumber top = y + yOffset;
 	const PixelNumber right = left + width - 1;
 	const PixelNumber bottom = top + height - 1;
+	const Colour green = UTFT::fromRGB(86, 184, 52);
+	const Colour red = UTFT::fromRGB(230, 0, 0);
+	const Colour col = (signal == Signal::Closed) ? red : (signal == Signal::Open) ? green : ((signal == Signal::Start) ? green : GlyphIdle);
 
-	lcd.setColor(TileBg);
+	lcd.setColor(pressed ? PressedBg : TileBg);
 	lcd.fillRoundRect(left, top, right, bottom);
-	lcd.setColor(outline);
+	lcd.setColor(col);
 	lcd.drawRoundRect(left, top, right, bottom);
 	lcd.drawRoundRect(left + 1, top + 1, right - 1, bottom - 1);
 	lcd.drawRoundRect(left + 2, top + 2, right - 2, bottom - 2);
 
-	PrintCentred(caption, left + 4, right - 4, top + 4, 22, GlyphIdle);
-	PrintCentred(value, left + 4, right - 4, top + height / 2 - 2, height / 2, TextColour);
+	// Text (28 x 32 font) centred in the room left of the dot, if there is one
+	const bool dotShown = (signal == Signal::Open || signal == Signal::Closed);
+	const PixelNumber dotRoom = dotShown ? 36 : 0;
+	lcd.setTransparentBackground(true);
+	lcd.setFont(glcd28x32);
+	lcd.setColor(col);
+	lcd.setTextPos(0, 9999, width);
+	lcd.printf("%s", text);
+	const PixelNumber tw = lcd.getTextX();
+	const PixelNumber fh = UTFT::GetFontHeight(glcd28x32);
+	const PixelNumber avail = width - 8 - dotRoom;
+	const PixelNumber tx = left + 4 + dotRoom + ((avail > tw) ? (avail - tw) / 2 : 0);
+	lcd.setTextPos(tx, top + (height - fh) / 2, right - 4);
+	lcd.printf("%s", text);
+	lcd.setTransparentBackground(false);
+
+	if (dotShown)
+	{
+		const int dx = static_cast<int>(left) + 26;
+		const int dy = static_cast<int>(top + height / 2);
+		lcd.setColor(col);
+		lcd.fillCircle(dx, dy, 9);
+		if (signal == Signal::Open)
+		{
+			lcd.setColor(pressed ? PressedBg : TileBg);
+			lcd.fillCircle(dx, dy, 5);					// ring = open, disc = closed
+		}
+	}
 	changed = false;
 }
 
@@ -1091,7 +1128,7 @@ void CncAlertRow::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset)
 
 	// Badge
 	const PixelNumber by = top + (height - BadgeH) / 2;
-	lcd.setColor(error ? UTFT::fromRGB(201, 50, 24) : UTFT::fromRGB(224, 168, 0));
+	lcd.setColor(error ? UTFT::fromRGB(230, 0, 0) : UTFT::fromRGB(224, 168, 0));
 	lcd.fillRoundRect(left + BadgeDx, by, left + BadgeDx + BadgeW - 1, by + BadgeH - 1);
 	PrintCentred(error ? "ERR" : "WARN", left + BadgeDx, left + BadgeDx + BadgeW - 1, by, BadgeH,
 					error ? UTFT::fromRGB(245, 245, 245) : UTFT::fromRGB(36, 36, 36));	// white reads better on red

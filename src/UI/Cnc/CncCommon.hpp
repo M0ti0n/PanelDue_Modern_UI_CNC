@@ -24,7 +24,7 @@ namespace Cnc
 	extern const Colour Border;			// #3b434f
 	extern const Colour DarkText;		// #12161c, text on accent fill
 	extern const Colour NotHomedBg;		// #804000, Modern UI dark not-homed colour
-	extern const Colour StopRed;		// #C93218
+	extern const Colour StopRed;		// #E60000
 
 	Colour Accent();					// accent colour chosen in settings
 	constexpr uint8_t NumAccentColours = 8;

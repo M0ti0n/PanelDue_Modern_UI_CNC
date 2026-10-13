@@ -599,6 +599,7 @@ namespace UI
 			|| ev == evSettingsAlwaysDimToggle || ev == evSettingsHeaterCombineOpen	// SETTINGS toggles / machine tiles
 			|| ev == evInvertX || ev == evInvertY
 			|| ev == evCncAux || ev == evCncCustom || ev == evCncJobAux || ev == evCncJobCustom	// toggles / macros: once per tap
+			|| ev == evCncFeedMode || ev == evCncProbeSide || ev == evCncProbeRun	// RAPID | SLOW, OUTSIDE | INSIDE, PROBE / START: once per tap
 			|| ((ev == evCncJobOvrMinus || ev == evCncJobOvrPlus) && Cnc::JobInProgress())		// one override command per tap
 			|| ev == evSendKeyboardCommand)
 		{

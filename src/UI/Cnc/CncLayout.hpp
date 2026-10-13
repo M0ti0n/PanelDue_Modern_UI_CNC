@@ -169,7 +169,6 @@ namespace CncLayout
 		constexpr PixelNumber AutoTileH = (PickBottom - GridY - 2 * TileGap) / 3;	// 76
 		constexpr PixelNumber RowTileH = 52, RowTileGap = 6;				// SEMI / MANUAL parameter list tiles
 		constexpr PixelNumber BottomY = 601, BottomH = ContentBottom - BottomY;	// 56
-		constexpr PixelNumber StatusW = 150;
 	}
 
 	// JOB > JOB STATUS page (mock-ups pd_cnc_job_status_v2_*.svg), under the compact DRO

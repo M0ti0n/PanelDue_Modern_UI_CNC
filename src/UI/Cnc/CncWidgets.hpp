@@ -161,7 +161,8 @@ enum class CncOrigin : uint8_t { TL, TC, TR, ML, MC, MR, BL, BC, BR, Bore, Boss,
 
 // Simplified line icon of an origin (corner = L, edge = bar, centre = crosshair; the dot marks
 // the point that becomes the origin). 'bg' is the tile colour behind it.
-void CncDrawOriginGlyph(CncOrigin kind, int cx, int cy, Colour col, Colour bg);
+// 'inside' moves the probe dot of corners and edges from the outside of the line to the inside.
+void CncDrawOriginGlyph(CncOrigin kind, int cx, int cy, Colour col, Colour bg, bool inside = false);
 
 // Origin picker button. Corners, edges, centre: selected = accent fill, dark glyph.
 // BORE, BOSS, Z TOP (outline style): selected = accent outline, glyph keeps its colour.
@@ -172,11 +173,13 @@ class CncOriginButton : public SingleButton
 	const char *label;								// small text under the glyph, or nullptr
 	Colour accent;
 	bool outlineStyle;
+	bool inside = false;							// probe from the inside (dot inside the line)
 
 protected:
 	PixelNumber GetHeight() const override { return height; }
 
 public:
+	void SetInside(bool i) { if (i != inside) { inside = i; changed = true; } }
 	CncOriginButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, CncOrigin k, const char *plabel,
 					bool pOutlineStyle, Colour pAccent, event_t e, int param);
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
@@ -188,11 +191,13 @@ class CncGlyphField : public DisplayField
 	PixelNumber height;
 	CncOrigin kind;
 	Colour glyph, background;
+	bool inside = false;
 
 protected:
 	PixelNumber GetHeight() const override { return height; }
 
 public:
+	void SetInside(bool i) { if (i != inside) { inside = i; changed = true; } }
 	CncGlyphField(PixelNumber py, PixelNumber px, PixelNumber size, CncOrigin k, Colour pGlyph, Colour pBackground);
 	void SetKind(CncOrigin k) { if (k != kind) { kind = k; changed = true; } }
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
@@ -219,20 +224,25 @@ public:
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
 };
 
-// Status tile: two centred lines (small muted caption, value) and a 3 px coloured outline
-class CncStatusTile : public DisplayField
+// PROBE / START button: dark tile with a 3 px outline and the text in the same colour, never the accent
+// colour. Signal: green ring = probe open (ready), red disc = probe closed (triggered); None = no dot
+// (START: green outline, or the machine does not report the probe: grey outline).
+class CncProbeButton : public SingleButton
 {
+public:
+	enum class Signal : uint8_t { None, Start, Open, Closed };	// None: probe not reported (grey), Start: green without a dot
+
+private:
 	PixelNumber height;
-	const char *caption;
-	const char *value;
-	Colour outline;
+	const char *text;
+	Signal signal = Signal::None;
 
 protected:
 	PixelNumber GetHeight() const override { return height; }
 
 public:
-	CncStatusTile(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, const char *pCaption);
-	void SetState(const char *v, Colour pOutline) { if (v != value || pOutline != outline) { value = v; outline = pOutline; changed = true; } }
+	CncProbeButton(PixelNumber py, PixelNumber px, PixelNumber pw, PixelNumber ph, const char *pText, event_t e, int param);
+	void SetSignal(Signal s) { if (s != signal) { signal = s; changed = true; } }
 	void Refresh(bool full, PixelNumber xOffset, PixelNumber yOffset) override;
 };
 

@@ -138,7 +138,8 @@ If another tool is already active, LOAD performs the corresponding normal `T#` t
 
 PROBE provides the interface for workpiece probing and work-origin measurement.  
 The operator selects the required probing position from corner, edge, centre, bore, boss, or Z-top positions, and the available parameters change depending on whether **AUTO, SEMI-AUTO, or MANUAL** probing mode is selected in SETTINGS.  
-The probe status indicator shows whether probe K0 is currently **OPEN or CLOSED**, and RUN PROBE / START launches the corresponding probing macro with the selected position and parameters.  
+The **OUTSIDE | INSIDE** switch under the origin grid chooses which side of the stock is probed; the dot of the corner and edge symbols moves to the outside or inside of the line to show it. BORE always probes inside and BOSS outside (the switch is greyed), Z TOP has no side, and the operator's choice is remembered for the other positions.  
+The **PROBE** button (never in the accent colour) shows the state of probe K0: green outline with a ring = **OPEN** (ready), red outline with a filled disc = **CLOSED** (triggered, the tap is refused). In MANUAL mode the same button reads START, in green without a dot. A tap launches the corresponding probing macro with the selected position and parameters; for corners, edges and centre with INSIDE selected ` I1` is appended to the macro call, so the machine macros must handle that parameter.  
 AUTO mode provides live probing progress and measured-axis results, while SEMI-AUTO and MANUAL modes can use dedicated M291 interaction controls for positioning and confirmation.
 
 ### Probe positions
@@ -540,15 +541,15 @@ v3-7.0c
 
 ## CNC Firmware Downloads — RC2
 
-- [PanelDue 5.0i RC3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc3.bin)
+- [PanelDue 5.0i RC3-1](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc3-1.bin)
 
-- [PanelDue 7.0i RC3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc3.bin)
+- [PanelDue 7.0i RC3-1](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc3-1.bin)
 
-- [PanelDue v3 5.0 RC3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc3.bin)
+- [PanelDue v3 5.0 RC3-1](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc3-1.bin)
 
-- [PanelDue v3 7.0C RC3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc3.bin)
+- [PanelDue v3 7.0C RC3-1](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc3-1.bin)
 
-- [PanelDue v3 7.0 RC3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc3.bin)
+- [PanelDue v3 7.0 RC3-1](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc3-1.bin)
 
 
 IF links dont work latest builds are stored in "latest version compiled"  folder

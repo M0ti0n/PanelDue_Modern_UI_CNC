@@ -22,7 +22,7 @@ namespace Cnc
 	const Colour Border     = UTFT::fromRGB(59, 67, 79);
 	const Colour DarkText   = UTFT::fromRGB(18, 22, 28);
 	const Colour NotHomedBg = UTFT::fromRGB(128, 64, 0);
-	const Colour StopRed    = UTFT::fromRGB(201, 50, 24);
+	const Colour StopRed    = UTFT::fromRGB(230, 0, 0);
 
 	Colour Accent()
 	{
@@ -34,7 +34,7 @@ namespace Cnc
 		switch (index % NumAccentColours)
 		{
 		case 0:  return UTFT::fromRGB(238, 112, 4);		// Orange Fire
-		case 1:  return UTFT::fromRGB(255, 0, 0);		// Red Voron
+		case 1:  return UTFT::fromRGB(255, 97, 182);	// Pink #ff61b6
 		case 2:  return UTFT::fromRGB(0, 124, 247);		// Duet Blue
 		case 3:  return UTFT::fromRGB(0, 255, 255);		// Cyan
 		case 4:  return UTFT::fromRGB(80, 150, 56);		// RepRap Green

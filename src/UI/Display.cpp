@@ -976,7 +976,7 @@ void ModernStopButton::Refresh(bool full, PixelNumber xOffset, PixelNumber yOffs
 	}
 
 	const Colour railBg = UTFT::fromRGB(18, 22, 28);       // #12161c, same as the rail card behind it
-	const Colour stopRed = pressed ? UTFT::fromRGB(160, 39, 35) : UTFT::fromRGB(201, 50, 24); // #C93218 fixed safety red
+	const Colour stopRed = pressed ? UTFT::fromRGB(184, 0, 0) : UTFT::fromRGB(230, 0, 0); // #E60000 fixed safety red
 	const Colour glyph = UTFT::fromRGB(245, 245, 245);
 	const PixelNumber left = x + xOffset;
 	const PixelNumber top = y + yOffset;

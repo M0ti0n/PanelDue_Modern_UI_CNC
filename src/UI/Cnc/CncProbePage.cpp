@@ -8,18 +8,24 @@
  *   [ML ][MC ][MR ]      |  [SEARCH    ][Z DEPTH   ]
  *   [BL ][BC ][BR ]      |  [STOCK     ][STORE TO v]
  *   [BORE][BOSS][Z TOP]  |
- *   [PROBE OPEN] [          RUN PROBE             ]
+ *   [OUTSIDE | INSIDE]   |  [ PROBE ]
  *
  * One origin is picked at a time. Corners, edges and centre are filled with the accent colour
  * when picked; BORE, BOSS and Z TOP get an accent outline instead.
+ * OUTSIDE | INSIDE: which side of the stock the probe goes to, shown by the dot of the corner and
+ * edge glyphs (outside / inside the line). BORE always probes inside (INSIDE, greyed), BOSS outside
+ * (OUTSIDE, greyed), Z TOP has no side (greyed). The user's choice is kept for the other origins.
  * The mode (AUTO / SEMI-AUTO / MANUAL) is shown as a label only; it is chosen in SETTINGS.
  * The parameter tiles open the standard numpad (STOCK: X, then Y), STORE TO the standard popup.
- * The probe tile shows probe K0: green outline OPEN, red outline CLOSED (triggered).
+ * The PROBE button (never the accent colour) shows probe K0: green outline and ring = open (ready),
+ * red outline and disc = closed (triggered, a tap is refused). START (MANUAL) is the same button
+ * with a green outline and no dot.
  *
  * RUN PROBE / START calls the probe macro of the mode:
- *   AUTO    M98 P"0:/sys/probe/probe_auto.g"   O"TL" D<tip> C<clearance> S<search> Z<depth> L<stock X> B<stock Y> W<1..6>
- *   SEMI    M98 P"0:/sys/probe/probe_semi.g"   O"TL" D<tip> C<clearance> S<search> W<1..6>
- *   MANUAL  M98 P"0:/sys/probe/probe_manual.g" O"TL" D<tool diameter> W<1..6>
+ *   AUTO    M98 P"0:/sys/probe/probe_auto.g"   O"TL" D<tip> C<clearance> S<search> Z<depth> L<stock X> B<stock Y> W<1..6> [I1]
+ *   SEMI    M98 P"0:/sys/probe/probe_semi.g"   O"TL" D<tip> C<clearance> S<search> W<1..6> [I1]
+ *   MANUAL  M98 P"0:/sys/probe/probe_manual.g" O"TL" D<tool diameter> W<1..6> [I1]
+ * I1 is added only when INSIDE is selected for a corner, an edge or the centre (BORE is inside by its origin code).
  * Origin codes: TL TOP TR LEFT CTR RIGHT BL BOT BR BORE BOSS ZTOP.
  *
  * AUTO opens the auto popup (under the DRO line) with a wide emergency STOP. Its info tile:
@@ -91,6 +97,7 @@ namespace
 	CncProbe::Mode mode = CncProbe::Mode::Auto;
 	CncOrigin origin = CncOrigin::TL;
 	CncOrigin runOrigin = CncOrigin::TL;				// origin of the last RUN (glyph in the popups)
+	bool runInside = false;								// ... and its side
 	bool autoBusySeen = false;							// the auto probe macro has been seen running
 	uint32_t autoStartTime = 0;
 	constexpr uint32_t AutoStartTimeout = 5000;			// ms: close the auto popup if the macro never showed up
@@ -108,8 +115,24 @@ namespace
 	constexpr size_t MaxModeTiles = 6;
 	ModeTile modeTiles[3][MaxModeTiles];				// per mode: AUTO, SEMI, MANUAL
 	size_t modeTileCount[3] = { 0, 0, 0 };
-	CncStatusTile *probeTile;
-	ModernTextButton *runButton, *startButton;
+	CncSegmentButton *sideSwitch;						// OUTSIDE | INSIDE
+	CncProbeButton *runButton, *startButton;
+	bool userInside = false;							// the operator's choice (kept while BORE / BOSS / Z TOP are picked)
+
+	// BORE forces INSIDE, BOSS forces OUTSIDE, Z TOP has no side
+	bool SideLocked() { return origin >= CncOrigin::Bore; }
+	bool InsideNow() { return (origin == CncOrigin::Bore) ? true : (origin == CncOrigin::Boss) ? false : userInside; }
+
+	void UpdateSide()
+	{
+		const bool in = InsideNow();
+		sideSwitch->SetLocked(SideLocked());
+		sideSwitch->SetRightActive(in);
+		for (size_t i = 0; i < NumOrigins; ++i)
+		{
+			originButtons[i]->SetInside(in);
+		}
+	}
 
 	// ---- Parameter tiles ----
 	float *ValueOf(ParamId id)
@@ -181,30 +204,22 @@ namespace
 		}
 		// Hide first, then show: START covers the whole row, hiding it erases the others
 		const bool manual = (mode == CncProbe::Mode::Manual);
-		if (manual)
+		if (manual)										// the cutter is the probe: START has no signal to show
 		{
-			mgr.Show(probeTile, false);					// the cutter is the probe: no signal to show
 			mgr.Show(runButton, false);
 			mgr.Show(startButton, true);
 		}
 		else
 		{
 			mgr.Show(startButton, false);
-			mgr.Show(probeTile, true);
 			mgr.Show(runButton, true);
 		}
 	}
 
 	void UpdateProbeTile()
 	{
-		if (!haveProbeValue)
-		{
-			probeTile->SetState("-", Border);
-		}
-		else
-		{
-			probeTile->SetState(probeClosed ? "CLOSED" : "OPEN", probeClosed ? StopRed : ProbeGreen);
-		}
+		runButton->SetSignal(!haveProbeValue ? CncProbeButton::Signal::Start
+								: probeClosed ? CncProbeButton::Signal::Closed : CncProbeButton::Signal::Open);
 	}
 
 	// ---- Parameter editing ----
@@ -510,6 +525,7 @@ namespace
 	// Start state of the auto popup's info tile
 	void ResetAutoTile()
 	{
+		autoSideGlyph->SetInside(runInside);
 		autoSideGlyph->SetKind(origin);
 		autoHead.copy(OriginNames[(size_t)origin]);
 		autoHeadText->SetValue(autoHead.c_str(), true);
@@ -563,7 +579,7 @@ namespace CncProbe
 													big ? BigLabels[i - 9] : nullptr, big, accent, evCncProbeOrigin, (int)i);
 			mgr.AddField(originButtons[i]);
 		}
-		mgr.AddField(new ModernCard(LabelY, SepX, SeparatorH, PickBottom - LabelY, accent, accent, false));
+		mgr.AddField(new ModernCard(LabelY, SepX, SeparatorH, BottomY + BottomH - LabelY, accent, accent, false));
 
 		// Parameter tiles: AUTO 2 x 3 stacked, SEMI / MANUAL one row each
 		{
@@ -588,18 +604,19 @@ namespace CncProbe
 			}
 		}
 
-		// Bottom row: probe signal + RUN PROBE, or START (manual)
-		probeTile = new CncStatusTile(BottomY, Margin, StatusW, BottomH, "PROBE");
-		mgr.AddField(probeTile);
-		DisplayField::SetDefaultColours(ButtonText, ProbeGreen, ProbeGreen, ProbeGreen, ProbeGreen, ProbeGreen, IconPaletteDark);
-		runButton = new ModernTextButton(BottomY, Margin + StatusW + 8, ContentW - StatusW - 8, BottomH, "RUN PROBE", evCncProbeRun, 0, glcd28x32, false);
+		// Bottom row: OUTSIDE | INSIDE under ORIGIN, PROBE (or START in manual mode) under MODE
+		sideSwitch = new CncSegmentButton(BottomY, GridX, 3 * BtnW + 2 * BtnGap, BottomH, "OUTSIDE", "INSIDE", accent, evCncProbeSide);
+		mgr.AddField(sideSwitch);
+		runButton = new CncProbeButton(BottomY, ParX, ParW, BottomH, "PROBE", evCncProbeRun, 0);
 		mgr.AddField(runButton);
-		startButton = new ModernTextButton(BottomY, Margin, ContentW, BottomH, "START", evCncProbeRun, 0, glcd28x32, false);
+		startButton = new CncProbeButton(BottomY, ParX, ParW, BottomH, "START", evCncProbeRun, 0);
+		startButton->SetSignal(CncProbeButton::Signal::Start);
 		mgr.AddField(startButton);
 
 		// Initial state
 		selectedOrigin = originButtons[(size_t)origin];
 		originButtons[(size_t)origin]->Press(true, 0);
+		UpdateSide();
 		for (size_t i = 0; i < NumParams; ++i)
 		{
 			UpdateTileText((ParamId)i);
@@ -621,6 +638,15 @@ namespace CncProbe
 		case evCncProbeOrigin:
 			origin = (CncOrigin)bp.GetIParam();
 			Select(selectedOrigin, bp.GetButton());
+			UpdateSide();
+			return true;
+
+		case evCncProbeSide:
+			if (!SideLocked())								// BORE, BOSS and Z TOP decide for themselves
+			{
+				userInside = !userInside;
+				UpdateSide();
+			}
 			return true;
 
 		case evCncProbeParam:
@@ -651,28 +677,31 @@ namespace CncProbe
 				const char * const code = OriginCodes[(size_t)origin];
 				runOrigin = origin;
 				const unsigned int w = values.storeTo + 1u;
+				runInside = (origin < CncOrigin::Bore) && InsideNow();
+				const char * const side = runInside ? " I1" : "";			// the macro probes the inside
 				switch (mode)
 				{
 				case Mode::Auto:
-					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_auto.g\" O\"%s\" D%.3f C%.3f S%.3f Z%.3f L%.3f B%.3f W%u\n",
+					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_auto.g\" O\"%s\" D%.3f C%.3f S%.3f Z%.3f L%.3f B%.3f W%u%s\n",
 									code, (double)values.tip, (double)values.autoClear, (double)values.autoSearch,
-									(double)values.zDepth, (double)values.stockX, (double)values.stockY, w);
+									(double)values.zDepth, (double)values.stockX, (double)values.stockY, w, side);
 					// Auto popup: the machine now probes on its own
 					CncPopup::Close();
 					autoBusySeen = false;
 					autoStartTime = SystemTick::GetTickCount();
+					autoTitleGlyph->SetInside(runInside);
 					autoTitleGlyph->SetKind(origin);
 					ResetAutoTile();
 					mgr.ClearAllPopups();
 					mgr.SetPopup(autoPopup, PopupUnderDroX, PopupUnderDroY);
 					break;
 				case Mode::Semi:
-					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_semi.g\" O\"%s\" D%.3f C%.3f S%.3f W%u\n",
-									code, (double)values.tip, (double)values.semiClear, (double)values.semiSearch, w);
+					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_semi.g\" O\"%s\" D%.3f C%.3f S%.3f W%u%s\n",
+									code, (double)values.tip, (double)values.semiClear, (double)values.semiSearch, w, side);
 					break;
 				default:
-					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_manual.g\" O\"%s\" D%.3f W%u\n",
-									code, (double)values.toolDia, w);
+					SerialIo::Sendf("M98 P\"0:/sys/probe/probe_manual.g\" O\"%s\" D%.3f W%u%s\n",
+									code, (double)values.toolDia, w, side);
 					break;
 				}
 			}
@@ -688,6 +717,7 @@ namespace CncProbe
 		switch ((Event)bp.GetEvent())
 		{
 		case evCncProbeOrigin:					// selection stays
+		case evCncProbeSide:
 		case evCncProbeParam:					// opens a popup
 		case evCncProbeRun:
 			return true;
@@ -859,6 +889,7 @@ namespace CncProbe
 		{
 			const bool top = (side == CncOrigin::ZTop);
 			jogTitle.copy("PROBE");
+			jogTitleGlyph->SetInside(runInside);
 			jogTitleGlyph->SetKind(runOrigin);
 			if (semiPrompt)
 			{
@@ -872,6 +903,7 @@ namespace CncProbe
 				jogT2.copy(top ? "top of stock and press READ" : "side of stock and press READ");
 				jogOkLabel.copy("READ");
 			}
+			jogSideGlyph->SetInside(runInside);
 			jogSideGlyph->SetKind(side);
 			jogText1->SetValue(jogT1.c_str(), true);
 			jogText2->SetValue(jogT2.c_str(), true);
@@ -882,6 +914,7 @@ namespace CncProbe
 		else
 		{
 			jogTitle.copy(probePrompt ? "PROBE" : title);
+			jogTitleGlyph->SetInside(runInside);
 			jogTitleGlyph->SetKind(probePrompt ? runOrigin : CncOrigin::None);
 			jogOkLabel.copy("OK");
 			jogT1.Clear();
@@ -947,6 +980,7 @@ namespace CncProbe
 			const CncOrigin side = SideGlyph(title[6]);
 			if (side != CncOrigin::None)
 			{
+				autoSideGlyph->SetInside(runInside);
 				autoSideGlyph->SetKind(side);
 			}
 			const char *p = strchr(title, ' ');
