@@ -174,7 +174,7 @@ Depending on the selected probing mode, available parameters can include:
 - `0:/sys/probe/probe_semi.g`
 - `0:/sys/probe/probe_manual.g`
 
-You need only one macro per mode. The screen keeps calling the same three files (probe_auto.g, probe_semi.g, probe_manual.g), with or without I1 at the end:
+You need only one macro per mode. The screen keeps calling the same three files (probe_auto.g, probe_semi.g, probe_manual.g), with or without i1 at the end:
 
 M98 P"0:/sys/probe/probe_auto.g" O"TL" D2.000 C5.000 S10.000 Z3.000 L100.000 B60.000 W1      ; outside
 M98 P"0:/sys/probe/probe_auto.g" O"TL" D2.000 C5.000 S10.000 Z3.000 L100.000 B60.000 W1 I1   ; inside
