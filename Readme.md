@@ -546,6 +546,10 @@ It decides which of the two on-screen buttons is "+". Each axis has two buttons,
 It's useful when the arrow you see should match the real motion from where you stand. On a mill where the table moves, "+X" can make the table travel left while the tool moves right relative to the part. Or you may stand at the back of the machine, so "forward" on the screen should be the other Y direction. The tile lets you place "+" on the side that matches what you see. If your arrows already match the motion, leave it alone.
 
 
+rc3-2:  Added selector switch for inside outside probing.  
+
+
+
     
 ## Software Compatibility 
 
