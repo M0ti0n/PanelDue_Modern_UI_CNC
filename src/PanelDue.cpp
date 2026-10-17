@@ -790,24 +790,21 @@ static const uint32_t layerPollInterval = 3000, extrusionPollInterval = 1500, re
 
 static void PollExtraLiveValues(uint32_t now)
 {
-	if (!UI::IsJobStatusPageShown())
-	{
-		return;
-	}
-	const bool printing = PrintInProgress();
+	const bool jobLayer = PrintInProgress() && UI::IsJobStatusPageShown();
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
 	{
 		if (seqs[i].state != SeqStateOk)
 		{
 			continue;
 		}
-		if (printing && seqs[i].seqid == rcvSeqsLiveJobLayer && now - lastLayerPoll >= layerPollInterval)
+		if (jobLayer && seqs[i].seqid == rcvSeqsLiveJobLayer && now - lastLayerPoll >= layerPollInterval)
 		{
 			seqs[i].state = SeqStateUpdate;
 			lastLayerPoll = now;
 		}
-		// move.currentMove (speeds, extrusion rate) also when idle: RRF 3.7 only sends these here, and without it the speeds would
-		// keep the last job's values. RRF 3.6 and earlier send them in the regular live request, so it is skipped there.
+		// move.currentMove (requested speed = the DRO feed F, top speed, extrusion rate) on every page: the full and compact DRO
+		// show the feed everywhere. RRF 3.7 only sends these here; RRF 3.6 and earlier send them in the regular live request,
+		// so this request is skipped there.
 		else if (seqs[i].seqid == rcvSeqsLiveExtrusionRate && now - lastExtrusionPoll >= extrusionPollInterval
 				 && now - lastRegularExtrusionSample >= regularSampleFreshTime)
 		{
