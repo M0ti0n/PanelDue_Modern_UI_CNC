@@ -504,7 +504,11 @@ static FieldTableEntry fieldTable[] =
 	{ rcvMoveExtrudersFilamentDiameter,	"move.extruders^:filamentDiameter" },
 	{ rcvMoveExtrudersPressureAdvance,	"move.extruders^:pressureAdvance" },
 	{ rcvJobLayer,						"job.layer" },
-	{ rcvMoveCurrentExtrusionRateKeyed,	"move.currentMove.extrusionRate" },
+	// The extra live request asks for the whole of move.currentMove. RRF 3.7 no longer sends requestedSpeed and topSpeed
+	// in the regular PanelDue live request (flag 'p'), so this request supplies them too.
+	{ rcvMoveCurrentExtrusionRateKeyed,	"move.currentMove:extrusionRate" },
+	{ rcvMoveCurrentRequestedSpeed,		"move.currentMove:requestedSpeed" },
+	{ rcvMoveCurrentTopSpeed,			"move.currentMove:topSpeed" },
 	{ rcvMoveSpeedFactor, 				"move:speedFactor" },
 	{ rcvMoveWorkplaceNumber, 			"move:workplaceNumber" },
 
@@ -659,17 +663,17 @@ static struct Seq {
 	{ .event = rcvOMKeyBoards, .seqid = rcvSeqsBoards, .lastSeq = 0, .state = SeqStateInit, .key = "boards", .flags = "vp" },
 #endif
 #if FETCH_MOVE
-	{ .event = rcvOMKeyMove, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move", .flags = "vp" },
+	{ .event = rcvOMKeyMove, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move", .flags = "vpo" },			// o: RRF 3.7 marks workplaceNumber obsolete; RRF 3.6 accepts the flag too
 	// The extruder fields the modern UI shows (flow factor, pressure advance, filament diameter) are asked for separately
 	// without the 'p' flag, which may make RRF leave them out. Shares the move sequence number.
-	{ .event = rcvOMKeyMoveExtruders, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move.extruders", .flags = "vn" },
+	{ .event = rcvOMKeyMoveExtruders, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move.extruders", .flags = "vno" },	// o: RRF 3.7 marks pressureAdvance obsolete
 #if CNC_UI
 	// The WCS offsets (G54..G59.3) for every axis; the 'p' flag of the regular move request drops them. Shares the move sequence number.
 	{ .event = rcvOMKeyMoveWorkplaceOffsets, .seqid = rcvSeqsMove, .lastSeq = 0, .state = SeqStateInit, .key = "move.axes[].workplaceOffsets", .flags = "v" },
 #endif
 	// Single live values that the PRINTING page shows and that the 'p' flag in the regular live request may drop.
 	// They have no sequence number of their own; PollExtraLiveValues() sets them to SeqStateUpdate every few seconds while printing.
-	{ .event = rcvOMKeyLiveExtrusionRate, .seqid = rcvSeqsLiveExtrusionRate, .lastSeq = 0, .state = SeqStateInit, .key = "move.currentMove.extrusionRate", .flags = "" },
+	{ .event = rcvOMKeyLiveExtrusionRate, .seqid = rcvSeqsLiveExtrusionRate, .lastSeq = 0, .state = SeqStateInit, .key = "move.currentMove", .flags = "" },
 #endif
 #if FETCH_HEAT
 	{ .event = rcvOMKeyHeat, .seqid = rcvSeqsHeat, .lastSeq = 0, .state = SeqStateInit, .key = "heat", .flags = "vp" },
@@ -702,7 +706,7 @@ static struct Seq {
 	{ .event = rcvOMKeySensors, .seqid = rcvSeqsSensors, .lastSeq = 0, .state = SeqStateInit, .key = "sensors", .flags = "vp" },
 #endif
 #if FETCH_STATE
-	{ .event = rcvOMKeyState, .seqid = rcvSeqsState, .lastSeq = 0, .state = SeqStateInit, .key = "state", .flags = "vnp" },
+	{ .event = rcvOMKeyState, .seqid = rcvSeqsState, .lastSeq = 0, .state = SeqStateInit, .key = "state", .flags = "vnpo" },		// o: RRF 3.7 marks nextTool obsolete (JOB page tool change)
 #endif
 #if FETCH_VOLUMES
 	{ .event = rcvOMKeyVolumes, .seqid = rcvSeqsVolumes, .lastSeq = 0, .state = SeqStateInit, .key = "volumes", .flags = "vp" },
@@ -790,17 +794,20 @@ static void PollExtraLiveValues(uint32_t now)
 	{
 		return;
 	}
+	const bool printing = PrintInProgress();
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
 	{
 		if (seqs[i].state != SeqStateOk)
 		{
 			continue;
 		}
-		if (seqs[i].seqid == rcvSeqsLiveJobLayer && now - lastLayerPoll >= layerPollInterval)
+		if (printing && seqs[i].seqid == rcvSeqsLiveJobLayer && now - lastLayerPoll >= layerPollInterval)
 		{
 			seqs[i].state = SeqStateUpdate;
 			lastLayerPoll = now;
 		}
+		// move.currentMove (speeds, extrusion rate) also when idle: RRF 3.7 only sends these here, and without it the speeds would
+		// keep the last job's values. RRF 3.6 and earlier send them in the regular live request, so it is skipped there.
 		else if (seqs[i].seqid == rcvSeqsLiveExtrusionRate && now - lastExtrusionPoll >= extrusionPollInterval
 				 && now - lastRegularExtrusionSample >= regularSampleFreshTime)
 		{
@@ -3329,10 +3336,7 @@ int main(void)
 				}
 				else
 				{
-					if (PrintInProgress())
-					{
-						PollExtraLiveValues(now);
-					}
+					PollExtraLiveValues(now);			// decides itself what is needed (layer only during a job)
 					currentReqSeq = GetNextSeq(currentReqSeq);
 					if (currentReqSeq != nullptr)
 					{
