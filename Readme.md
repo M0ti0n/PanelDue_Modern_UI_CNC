@@ -629,17 +629,17 @@ v3-7.0c
 | PanelDue model | Download |
 | --- | --- |
 
-## CNC Firmware Downloads — RC2
+## CNC Firmware Downloads — RC4
 
-- [PanelDue 5.0i RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc3-3.bin)
+- [PanelDue 5.0i RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc4.bin)
 
-- [PanelDue 7.0i RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc3-3.bin)
+- [PanelDue 7.0i RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc4.bin)
 
-- [PanelDue v3 5.0 RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc3-3.bin)
+- [PanelDue v3 5.0 RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc4.bin)
 
-- [PanelDue v3 7.0C RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc3-3.bin)
+- [PanelDue v3 7.0C RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc4.bin)
 
-- [PanelDue v3 7.0 RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc3-3.bin)
+- [PanelDue v3 7.0 RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc4.bin)
 
 
 IF links dont work latest builds are stored in "latest version compiled"  folder
