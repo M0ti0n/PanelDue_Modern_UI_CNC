@@ -12,7 +12,7 @@
 
 namespace CncProbe
 {
-	enum class Mode : uint8_t { Auto, Semi, Manual };
+	enum class Mode : uint8_t { Auto, Semi, Manual, Nxt };	// Nxt: MillenniumOS NeXT's probing cycles
 
 	// Adds the page fields to the current root (sub-tab strip + DRO + nav)
 	void Create();
@@ -30,7 +30,7 @@ namespace CncProbe
 	void SetJobState(bool running, bool active);
 	void SetNumAxes(size_t n);
 
-	// Probe mode, chosen in SYSTEM > SETTINGS (AUTO until SETTINGS exists)
+	// Probe mode, chosen in SYSTEM > SETTINGS (AUTO until SETTINGS exists; NXT only while NeXT is loaded)
 	void SetMode(Mode m);
 
 	// M291 routing. Returns true when the probe UI took the message.

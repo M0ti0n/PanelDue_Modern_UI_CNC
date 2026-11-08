@@ -53,6 +53,7 @@ namespace UI
 	extern void SetVolumeMounted(size_t volume, bool mounted);	// volumes[].mounted (JOB LIST SD tile)
 	extern void UpdateCncGlobal(const char *name, const char *data);	// global.cnc* (SYSTEM > SETTINGS)
 	extern void CncGlobalsArriving();					// start of an M409 K"global" reply
+	extern size_t CncProbeIndex();						// sensors.probes[] shown on WCS > PROBE (NeXT's touch probe in NXT mode)
 	extern void CncGlobalsDone(bool complete);			// its end (false: out of buffers)
 	extern void CncTouchSeen(bool repeat);				// every touch, before it is processed
 	extern void CncTouchDone();							// and after

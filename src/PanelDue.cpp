@@ -565,6 +565,13 @@ static FieldTableEntry fieldTable[] =
 	{ rcvCncGlobal,						"global:cncCustom2Macro" },
 	{ rcvCncGlobal,						"global:cncCustom3Label" },
 	{ rcvCncGlobal,						"global:cncCustom3Macro" },
+	// MillenniumOS NeXT: detection and what WCS > PROBE / TOOLS need in NXT mode
+	{ rcvCncGlobal,						"global:nxtLoaded" },
+	{ rcvCncGlobal,						"global:nxtProbeToolID" },
+	{ rcvCncGlobal,						"global:nxtTouchProbeID" },
+	{ rcvCncGlobal,						"global:nxtFeatureTouchProbe" },
+	{ rcvCncGlobal,						"global:nxtFeatureToolSetter" },
+	{ rcvCncGlobal,						"global:nxtFeatureFourthAxis" },
 #endif
 
 	// M409 K"state" response
@@ -766,6 +773,16 @@ static struct Seq *FindSeqByKey(const char *key)
 	return nullptr;
 }
 
+#if CNC_UI
+// seqs.global changes with every "set global", even to the same value. Macros that set globals all the time
+// (MillenniumOS NeXT's maintenance daemon: every 250 ms) would have the panel fetch the whole global object
+// (several KB) without a break. A change is fetched at most every GlobalMinInterval; the panel's own writes
+// (CncRequestGlobals) are fetched at once.
+static uint32_t lastGlobalFetch = 0;
+static bool globalDeferred = false;
+static constexpr uint32_t GlobalMinInterval = 5000;
+#endif
+
 static void UpdateSeq(const ReceivedDataEvent seqid, int32_t val)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
@@ -776,11 +793,41 @@ static void UpdateSeq(const ReceivedDataEvent seqid, int32_t val)
 			{
 				dbg("%s %d -> %d\n", seqs[i].key, seqs[i].lastSeq, val);
 				seqs[i].lastSeq = val;
+#if CNC_UI
+				if (seqid == rcvSeqsGlobal && seqs[i].state != SeqStateInit)
+				{
+					const uint32_t now = SystemTick::GetTickCount();
+					if (now - lastGlobalFetch < GlobalMinInterval)
+					{
+						globalDeferred = true;			// fetched by PollDeferredGlobals()
+						continue;
+					}
+					lastGlobalFetch = now;
+				}
+#endif
 				seqs[i].state = SeqStateUpdate;
 			}
 		}
 	}
 }
+
+#if CNC_UI
+static void PollDeferredGlobals(uint32_t now)
+{
+	if (globalDeferred && now - lastGlobalFetch >= GlobalMinInterval)
+	{
+		globalDeferred = false;
+		lastGlobalFetch = now;
+		for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
+		{
+			if (seqs[i].seqid == rcvSeqsGlobal && seqs[i].state == SeqStateOk)
+			{
+				seqs[i].state = SeqStateUpdate;
+			}
+		}
+	}
+}
+#endif
 
 // Ask again for the single live values below while a job is running (see the seqs table), and only while the PRINTING
 // page is showing because nothing else displays them. The extrusion rate is skipped whenever the regular live
@@ -824,9 +871,23 @@ static void ResetSeqs()
 }
 
 #if CNC_UI
+// WCS > PROBE: the probe shown changed (NXT mode): ask for the sensors again
+void CncRequestSensors()
+{
+	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
+	{
+		if (seqs[i].event == rcvOMKeySensors && seqs[i].state == SeqStateOk)
+		{
+			seqs[i].state = SeqStateUpdate;
+		}
+	}
+}
+
 // SYSTEM > SETTINGS: ask for the machine's globals again (after writing cnc-settings.g)
 void CncRequestGlobals()
 {
+	lastGlobalFetch = SystemTick::GetTickCount();
+	globalDeferred = false;
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
 	{
 		if (seqs[i].event == rcvOMKeyGlobal && seqs[i].state == SeqStateOk)
@@ -2086,7 +2147,11 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 	// Sensors section
 	case rcvSensorsProbeValue:
 		{
+#if CNC_UI
+			if (indices[0] == UI::CncProbeIndex() && indices[1] == 0)	// K0, or NeXT's touch probe in NXT mode
+#else
 			if (indices[0] == 0 && indices[1] == 0)			// currently we only handle one probe with one value
+#endif
 			UI::UpdateZProbe(data);
 		}
 		break;
@@ -3334,6 +3399,9 @@ int main(void)
 				else
 				{
 					PollExtraLiveValues(now);			// decides itself what is needed (layer only during a job)
+#if CNC_UI
+					PollDeferredGlobals(now);			// a throttled seqs.global change
+#endif
 					currentReqSeq = GetNextSeq(currentReqSeq);
 					if (currentReqSeq != nullptr)
 					{

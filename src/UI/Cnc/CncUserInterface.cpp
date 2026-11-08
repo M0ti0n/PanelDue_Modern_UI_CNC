@@ -922,6 +922,7 @@ namespace UI
 	void UpdateIP(const char data[]) { CncSettings::SetIP(data); }
 	void UpdateCncGlobal(const char *name, const char *data) { CncSettings::UpdateGlobal(name, data); }
 	void CncGlobalsArriving() { CncSettings::GlobalsArriving(); }
+	size_t CncProbeIndex() { return CncSettings::ProbeIndex(); }
 	void CncGlobalsDone(bool complete) { CncSettings::GlobalsDone(complete); }
 	// Messages from the machine (M291), shown in the standard popup.
 	// S0/S1: message, check mark closes it. S2: check mark = OK (M292 P0). S3: X = cancel (M292 P1).
@@ -948,8 +949,12 @@ namespace UI
 			break;
 		case Alert::Mode::InfoConfirm:
 		case Alert::Mode::ConfirmCancel:
-			// Tool change prompt during a job (title starts with TOOL, no jog controls): inline on JOB STATUS
-			if (alert.controls == 0 && strncmp(title, "TOOL", 4) == 0 && CncJob::ShowToolPrompt(alert.text.c_str(), alert.seq))
+			// Tool change prompt during a job (title starts with TOOL, no jog controls): inline on JOB STATUS.
+			// NXT: NeXT's tool change macros ask with "Install ..." / "Remove ..."
+			if (alert.controls == 0
+				&& (strncmp(title, "TOOL", 4) == 0
+					|| (CncSettings::NxtActive() && (strncmp(title, "Install ", 8) == 0 || strncmp(title, "Remove ", 7) == 0)))
+				&& CncJob::ShowToolPrompt(alert.text.c_str(), alert.seq))
 			{
 				if (!IsJobStatusPageShown())
 				{

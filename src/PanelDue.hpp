@@ -37,6 +37,7 @@ extern void PortraitDisplay(const bool withTouch = true);
 extern void CncCalibrateTouch();				// SYSTEM > SETTINGS: calibrate in landscape, then redraw portrait
 extern void CncFlipDisplay(bool invert);		// MIRROR DISPLAY (false) / INVERT DISPLAY (true), then calibrate
 extern void CncRequestGlobals();				// ask for M409 K"global" again
+extern void CncRequestSensors();				// ask for M409 K"sensors" again (WCS > PROBE shows another probe)
 extern void CncRequestWorkplaceOffsets();		// ask for the WCS offsets again (after a G10 sent from the panel)
 #endif
 extern void SetBaudRate(uint32_t rate);

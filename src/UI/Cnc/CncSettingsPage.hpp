@@ -39,6 +39,14 @@ namespace CncSettings
 	void UpdateGlobal(const char *name, const char *data);	// global.cnc* from the machine
 	void GlobalsDone(bool complete);				// end of that reply (false: cut short)
 	bool ToolSetter();								// TOOL SETTER on (MEASURE is refused without)
+
+	// MillenniumOS NeXT (global.nxt*). NXT is the probe mode only while NeXT is loaded on the machine.
+	bool NxtActive();								// PROBE MODE = NXT and global.nxtLoaded
+	int NxtProbeTool();								// global.nxtProbeToolID (-1: not known)
+	bool NxtToolSetter();							// global.nxtFeatureToolSetter
+	bool NxtTouchProbe();							// global.nxtFeatureTouchProbe
+	bool NxtFourthAxis();							// global.nxtFeatureFourthAxis
+	size_t ProbeIndex();							// probe shown on WCS > PROBE: NeXT's touch probe (K) in NXT mode, else 0
 	JogIcon JogIconPair(size_t axis);				// icons bound to axis 0..3 (X Y Z A) for the - / + move buttons
 	bool JogIconReversed(size_t axis);				// REVERSE: the - button shows the + icon and the other way round
 	void OpenJogFeedPopup(bool fromControl);		// SLOW JOG FEEDRATE presets (also the F tile on CONTROL)

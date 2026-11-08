@@ -8,7 +8,8 @@
  * panel's flash straight away (no SAVE button). ACCENT COLOR restarts the panel, as there.
  *
  * Page 2 CUSTOMIZATION is the machine's: its values are globals in 0:/sys/cnc-settings.g.
- *   PROBE MODE     AUTO / SEMI-AUTO / MANUAL     global.cncProbeMode 0 / 1 / 2
+ *   PROBE MODE     AUTO / SEMI-AUTO / MANUAL / NXT  global.cncProbeMode 0 / 1 / 2 / 3 (NXT: only while
+ *                  MillenniumOS NeXT is loaded, global.nxtLoaded; otherwise the PROBE page uses AUTO)
  *   TOOL HOLDER    ER COLLET / TOOL HOLDER       global.cncMeasureAfterChange true / false
  *   REMEMBER TOOL  toggle                        global.cncRememberTool
  *   TOOL SETTER    toggle                        global.cncToolSetter
@@ -95,7 +96,7 @@ namespace
 		{ "PROBE MODE", "TOOL HOLDER", "REMEMBER TOOL", "TOOL SETTER", "SLOW JOG F", "COOL / VAC", "CUSTOM 1", "CUSTOM 2", "CUSTOM 3" };
 	ModernTextButton *rememberTile, *setterTile;
 
-	const char * const ProbeModeLabels[] = { "AUTO", "SEMI-AUTO", "MANUAL" };
+	const char * const ProbeModeLabels[] = { "AUTO", "SEMI-AUTO", "MANUAL", "NXT" };
 	const char * const ToolHolderLabels[] = { "ER COLLET", "TOOL HOLDER" };
 	const char * const AuxLabels[] = { "COOLANT", "VACUUM" };
 	const char * const CustomLabels[] = { "MACRO", "LABEL", "CLEAR" };
@@ -122,6 +123,38 @@ namespace
 	} machine,
 	  incoming;											// a global reply being received: taken over when complete
 	bool receiving = false;
+
+	// MillenniumOS NeXT globals (read only; a global the machine does not have means "not there")
+	struct Nxt
+	{
+		bool loaded = false, touchProbe = false, toolSetter = false, fourthAxis = false;
+		int8_t probeTool = -1;							// nxtProbeToolID
+		uint8_t touchProbeK = 0;						// nxtTouchProbeID
+	} nxt, incomingNxt;
+	constexpr uint8_t NxtModeIndex = 3;					// cncProbeMode of NXT
+
+	CncProbe::Mode EffectiveProbeMode()
+	{
+		return (machine.probeMode == NxtModeIndex && !nxt.loaded) ? CncProbe::Mode::Auto : (CncProbe::Mode)machine.probeMode;
+	}
+
+	bool ProbeModeAllowed(size_t choice)
+	{
+		return choice != NxtModeIndex || nxt.loaded;
+	}
+
+	// PROBE page mode and the probe it shows (K0, or NeXT's touch probe in NXT mode)
+	size_t shownProbe = 0;
+	void ApplyProbeMode()
+	{
+		CncProbe::SetMode(EffectiveProbeMode());
+		const size_t k = CncSettings::ProbeIndex();
+		if (k != shownProbe)
+		{
+			shownProbe = k;
+			CncRequestSensors();						// its value comes with the next sensors reply
+		}
+	}
 	uint32_t presentMask = 0;							// bit per Global: the machine has this global
 	uint32_t incomingPresent = 0;						// same, for the reply being received
 	bool verifyReadback = false;						// the next complete reply must equal what we wrote
@@ -296,7 +329,7 @@ namespace
 
 	void ApplyMachine()
 	{
-		CncProbe::SetMode((CncProbe::Mode)machine.probeMode);
+		ApplyProbeMode();
 		CncControl::SetJogFeed(machine.jogFeed);
 		ApplyJogIcons();
 		if (strcmp(AuxLabel(), machine.auxVacuum ? "VACUUM" : "COOLANT") != 0)
@@ -800,7 +833,7 @@ namespace
 		switch (item)
 		{
 		case MProbeMode:
-			CncPopup::Choose("PROBE MODE", ProbeModeLabels, ARRAY_SIZE(ProbeModeLabels), machine.probeMode, nullptr, ProbeModeChosen, 0);
+			CncPopup::Choose("PROBE MODE", ProbeModeLabels, ARRAY_SIZE(ProbeModeLabels), machine.probeMode, ProbeModeAllowed, ProbeModeChosen, 0);
 			break;
 
 		case MToolHolder:
@@ -1032,6 +1065,7 @@ namespace CncSettings
 	void GlobalsArriving()
 	{
 		incoming = Machine();							// a global the machine does not have means its default
+		incomingNxt = Nxt();
 		incomingPresent = 0;
 		receiving = true;
 	}
@@ -1048,6 +1082,8 @@ namespace CncSettings
 			return;										// cut short: the seq is asked for again
 		}
 		globalsKnown = true;
+		nxt = incomingNxt;								// read only: always the machine's
+		ApplyProbeMode();								// NXT comes and goes with NeXT
 		if (!writing && !ignoring)						// otherwise ours are newer
 		{
 			if (verifyReadback)
@@ -1071,6 +1107,19 @@ namespace CncSettings
 		{
 			return;
 		}
+		if (strncmp(name, "nxt", 3) == 0)				// MillenniumOS NeXT
+		{
+			bool b = false;
+			const bool isBool = ParseBool(data, b);
+			const int n = atoi(data);
+			if (strcmp(name, "nxtLoaded") == 0) { incomingNxt.loaded = isBool && b; }
+			else if (strcmp(name, "nxtFeatureTouchProbe") == 0) { incomingNxt.touchProbe = isBool && b; }
+			else if (strcmp(name, "nxtFeatureToolSetter") == 0) { incomingNxt.toolSetter = isBool && b; }
+			else if (strcmp(name, "nxtFeatureFourthAxis") == 0) { incomingNxt.fourthAxis = isBool && b; }
+			else if (strcmp(name, "nxtProbeToolID") == 0) { incomingNxt.probeTool = (data[0] >= '0' && data[0] <= '9' && n < 128) ? (int8_t)n : -1; }
+			else if (strcmp(name, "nxtTouchProbeID") == 0) { incomingNxt.touchProbeK = (n >= 0 && n < 10) ? (uint8_t)n : 0; }
+			return;
+		}
 		size_t g = 0;
 		while (g < NumGlobals && strcasecmp(name, GlobalNames[g]) != 0)
 		{
@@ -1086,7 +1135,7 @@ namespace CncSettings
 		case Global::ProbeMode:
 			{
 				const int m = atoi(data);
-				if (m >= 0 && m <= 2)
+				if (m >= 0 && m <= (int)NxtModeIndex)
 				{
 					incoming.probeMode = (uint8_t)m;
 				}
@@ -1136,6 +1185,13 @@ namespace CncSettings
 	{
 		return machine.toolSetter;
 	}
+
+	bool NxtActive() { return nxt.loaded && machine.probeMode == NxtModeIndex; }
+	int NxtProbeTool() { return nxt.probeTool; }
+	bool NxtToolSetter() { return nxt.toolSetter; }
+	bool NxtTouchProbe() { return nxt.touchProbe; }
+	bool NxtFourthAxis() { return nxt.fourthAxis; }
+	size_t ProbeIndex() { return NxtActive() ? nxt.touchProbeK : 0; }
 
 	JogIcon JogIconPair(size_t axis)
 	{

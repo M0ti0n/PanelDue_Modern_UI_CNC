@@ -24,6 +24,7 @@ namespace CncTools
 	void RemoveFrom(size_t firstTool);
 	void SetZOffset(size_t tool, float offset);
 	void SetActiveTool(int tool);						// -1 = none
+	int ActiveTool();									// -1 = none
 
 	void SetJobState(bool running, bool active);
 }

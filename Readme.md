@@ -29,6 +29,7 @@ The interface is organised around five main tabs — **CONTROL, WCS, JOB, MACROS
   - [OFFSETS](#wcs--offsets)
   - [TOOLS](#wcs--tools)
   - [PROBE](#wcs--probe)
+  - [PROBE — NXT mode](#wcs--probe--nxt-mode)
 - [JOB](#job)
   - [JOB STATUS](#job--job-status)
   - [JOB LIST](#job--job-list)
@@ -139,7 +140,7 @@ If another tool is already active, LOAD performs the corresponding normal `T#` t
 ## WCS → PROBE
 
 PROBE provides the interface for workpiece probing and work-origin measurement.  
-The operator selects the required probing position from corner, edge, centre, bore, boss, or Z-top positions, and the available parameters change depending on whether **AUTO, SEMI-AUTO, or MANUAL** probing mode is selected in SETTINGS.  
+The operator selects the required probing position from corner, edge, centre, bore, boss, or Z-top positions, and the available parameters change depending on whether **AUTO, SEMI-AUTO, MANUAL or NXT** probing mode is selected in SETTINGS (NXT only when MillenniumOS NeXT is installed, see [PROBE — NXT mode](#wcs--probe--nxt-mode)).  
 The **OUTSIDE | INSIDE** switch under the origin grid chooses which side of the stock is probed; the dot of the corner and edge symbols moves to the outside or inside of the line to show it. BORE always probes inside and BOSS outside (the switch is greyed), Z TOP has no side, and the operator's choice is remembered for the other positions.  
 The **PROBE** button (never in the accent colour) shows the state of probe K0: green outline with a ring = **OPEN** (ready), red outline with a filled disc = **CLOSED** (triggered, the tap is refused). In MANUAL mode the same button reads START, in green without a dot. A tap launches the corresponding probing macro with the selected position and parameters; for corners, edges and centre with INSIDE selected ` I1` is appended to the macro call, so the machine macros must handle that parameter.  
 AUTO mode provides live probing progress and measured-axis results, while SEMI-AUTO and MANUAL modes can use dedicated M291 interaction controls for positioning and confirmation.
@@ -209,6 +210,54 @@ BORE and BOSS: these never get I1, because the origin code already says inside o
 If your macros currently ignore I, nothing breaks. INSIDE would just probe like OUTSIDE, which would crash the probe into the wall from the wrong side, so add the exists(param.I) check before using INSIDE on a machine.
 
 I can write a full probe_auto.g corner routine with both cases if you send me your current macro.
+
+## WCS → PROBE → NXT mode
+
+For machines running [MillenniumOS NeXT](https://github.com/MillenniumMachines/mos-nxt) (written for NeXT v0.6).  
+Choose **NXT** in SYSTEM → SETTINGS → PROBE MODE. The choice is only available while the machine reports NeXT as loaded (`global.nxtLoaded`); otherwise it is greyed and the PROBE page works in AUTO. The panel only sends NeXT's commands: NeXT does the probing, shows its own messages and writes the work offset itself. The `probe_auto.g` / `probe_semi.g` / `probe_manual.g` macros are not used in this mode.
+
+![PROBE in NXT mode](docs/screenshots/pd_cnc_probe_nxt_13m.png)
+
+The mode label at the top right reads **NXT**. The origin picker and the **OUTSIDE | INSIDE** switch work as in the other modes; only the tiles change.
+
+### What each origin runs
+
+| Origin | OUTSIDE | INSIDE |
+|---|---|---|
+| Corner (4) | outside corner, `G6508` | inside corner, `G6509` |
+| Edge (4) | one surface, probing toward the stock, `G6510` | one surface, probing toward the wall, `G6510` |
+| Centre | rectangle block, `G6503` (size = STOCK) | rectangle pocket, `G6502` (size = STOCK) |
+| BORE / BOSS | bore `G6500` / boss `G6501` (diameter = DIAM Ø) | |
+| Z TOP | top surface, probing down by SEARCH, `G6510` | |
+
+Example: top-left corner, outside, SAVE TO G54:  
+`M5000` then `G6508 U1 L5.000 X{global.nxtAbsPos[0]+10.000} Y{global.nxtAbsPos[1]-10.000} Q2`
+
+### Tiles
+
+- **DIAM Ø** — approximate bore / boss diameter.
+- **STOCK** — size X × Y for the rectangle, and the width for WEB / POCKET (X or Y).
+- **SEARCH** — how far the probe travels toward a face (corners, edges, Z TOP). Start within this distance of the faces.
+- **DEPTH** — how far the probe goes down beside / into the part.
+- **SAVE TO** — **G54 … G58**. NeXT keeps 5 result rows, so G59 is refused in this mode.
+- **MORE** — the cycles that have no place in the picker, and calibration:
+  - **WEB X / WEB Y** (`G6504`), **POCKET X / POCKET Y** (`G6505`), **VISE CORNER** (`G6520`)
+  - **CALIBRATE**: **DATUM SETUP** (`M5016`), **PROBE REPEAT** (`M6523 B0`), **SETTER REPEAT** (`M6523 B1`), and with the MOS Fourth Axis macros and an A axis **ROTARY FLAT** (`M4912`), **ROTARY CENTRE** (`M4910`), **ROTARY Y0** (`M4807`). Items for features NeXT does not have are greyed.
+
+Clearance, overtravel and the number of samples are NeXT's own defaults.
+
+### PROBE button
+
+- Shows NeXT's touch probe (`global.nxtTouchProbeID`) instead of K0: green ring = open, red disc = triggered.
+- Refused while a job runs, when the machine is not idle or not homed, when the probe is triggered, and while NeXT's touch probe tool (`global.nxtProbeToolID`, usually T49) is not loaded: load it on WCS → TOOLS first.
+- **Skew (G68):** the panel cannot answer NeXT's choice questions (M291 S4), so the cycles are sent with `Q2` (no rotation applied). The rectangle asks first: **APPLY** (`Q1`, NeXT applies G68) or **SKIP** (`Q2`).
+- **Edges** probe at the probe's current height: lower it beside the edge first.
+
+### WCS → TOOLS in NXT mode
+
+- **LOAD** always runs the real tool change (`T#`): NeXT asks for the tool and measures it. The "Is T# in the spindle?" shortcut is not used, because it would skip NeXT's macros.
+- **MEASURE** sends `G37` (NeXT's tool length probe). It needs NeXT's toolsetter feature, not SETTINGS → TOOL SETTER, and refuses the touch probe.
+- During a job, NeXT's *Install …* / *Remove …* prompts use the JOB STATUS tool change row.
 
 ---
 
@@ -436,6 +485,7 @@ Changes are written back to the Duet and persisted so the CNC interface retains 
   - AUTO  (machine does jogging and probing)
   - SEMI-AUTO (operator does jogging machine does probing)
   - MANUAL   (operator does jogging and then probing by manually reading saving values (PRESS READ))
+  - NXT      (MillenniumOS NeXT's probing cycles; only while NeXT is loaded on the machine, see WCS → PROBE)
 
 - **TOOL HOLDER**
   - ER COLLET     ( assumes tool length can change after every tool change)

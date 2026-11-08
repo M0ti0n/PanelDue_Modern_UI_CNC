@@ -28,6 +28,20 @@
  * I1 is added only when INSIDE is selected for a corner, an edge or the centre (BORE is inside by its origin code).
  * Origin codes: TL TOP TR LEFT CTR RIGHT BL BOT BR BORE BOSS ZTOP.
  *
+ * NXT (MillenniumOS NeXT loaded and PROBE MODE = NXT): the same picker runs NeXT's cycles, which write the
+ * work offset themselves (U1..U5 = G54..G58, NeXT keeps 5 result rows). Tiles: DIAM Ø, STOCK, SEARCH,
+ * DEPTH, SAVE TO, MORE. NeXT's defaults are used for clearance, overtravel and samples. The panel cannot
+ * answer NeXT's M291 S4 skew question, so Q is always sent: Q2 (skip G68), and the rectangle asks first.
+ *   Corner     M5000 + G6508 (OUTSIDE) / G6509 (INSIDE) L<depth> X/Y{global.nxtAbsPos[i] +- SEARCH}
+ *   Edge       M5000 P1 I<axis> + G6510 X|Y{global.nxtAbsPos +- SEARCH}  (at the current height)
+ *   Centre     G6503 (OUTSIDE, block) / G6502 (INSIDE, pocket) W<stock X> H<stock Y> L<depth> Q1|Q2
+ *   BORE/BOSS  G6500 / G6501 D<diameter> L<depth>        Z TOP  M5000 P1 I2 + G6510 Z{global.nxtAbsPos - SEARCH}
+ *   MORE       WEB X/Y (G6504), POCKET X/Y (G6505, width = STOCK X / Y), VISE CORNER (G6520) and CALIBRATE:
+ *              DATUM SETUP M5016, PROBE / SETTER REPEAT M6523 B0 / B1 C10, ROTARY FLAT M4912,
+ *              ROTARY CENTRE M4910, ROTARY Y0 M4807 W<54..58> (rotary items: MOS Fourth Axis macros + A axis)
+ * The cycles are refused unless NeXT's touch probe tool (global.nxtProbeToolID) is loaded. The PROBE
+ * button then shows NeXT's touch probe (global.nxtTouchProbeID) instead of K0.
+ *
  * AUTO opens the auto popup (under the DRO line) with a wide emergency STOP. Its info tile:
  *   [side icon] Side 1 of 2          <- M291 S1 R"PROBE:L 1/2" P"Probing toward +X ..."
  *   Probing toward +X ...            <- the text of that message (amber)
@@ -51,6 +65,7 @@
 #include "CncPopups.hpp"
 #include "CncControlPage.hpp"
 #include "CncSettingsPage.hpp"
+#include "CncToolsPage.hpp"
 #include <UI/UserInterface.hpp>
 #include "Hardware/SerialIo.hpp"
 #include "PanelDue.hpp"
@@ -82,7 +97,10 @@ namespace
 	const char * const WcsNames[NumWcs] = { "G54", "G55", "G56", "G57", "G58", "G59" };
 
 	// Parameters
-	enum ParamId : uint8_t { PTip, PAutoClear, PAutoSearch, PZDepth, PStock, PStoreTo, PSemiClear, PSemiSearch, PToolDia, NumParams };
+	enum ParamId : uint8_t { PTip, PAutoClear, PAutoSearch, PZDepth, PStock, PStoreTo, PSemiClear, PSemiSearch, PToolDia,
+							PNxtDia, PNxtSearch, PNxtDepth, PNxtMore, NumParams };
+	constexpr size_t NumModes = 4;						// AUTO, SEMI, MANUAL, NXT
+	constexpr size_t NxtMaxWcs = 5;						// NeXT keeps 5 result rows: G54 .. G58
 
 	struct ProbeValues
 	{
@@ -91,6 +109,7 @@ namespace
 		float stockX = 100.0f, stockY = 60.0f;
 		float semiClear = 2.0f, semiSearch = 5.0f;
 		float toolDia = 6.0f;
+		float nxtDia = 25.0f, nxtSearch = 10.0f, nxtDepth = 5.0f;
 		uint8_t storeTo = 0;							// 0 = G54
 	} values;
 
@@ -113,8 +132,8 @@ namespace
 
 	struct ModeTile { CncValueTile *tile; ParamId id; };
 	constexpr size_t MaxModeTiles = 6;
-	ModeTile modeTiles[3][MaxModeTiles];				// per mode: AUTO, SEMI, MANUAL
-	size_t modeTileCount[3] = { 0, 0, 0 };
+	ModeTile modeTiles[NumModes][MaxModeTiles];		// per mode: AUTO, SEMI, MANUAL, NXT
+	size_t modeTileCount[NumModes] = { 0, 0, 0, 0 };
 	CncSegmentButton *sideSwitch;						// OUTSIDE | INSIDE
 	CncProbeButton *runButton, *startButton;
 	bool userInside = false;							// the operator's choice (kept while BORE / BOSS / Z TOP are picked)
@@ -146,6 +165,9 @@ namespace
 		case PSemiClear:	return &values.semiClear;
 		case PSemiSearch:	return &values.semiSearch;
 		case PToolDia:		return &values.toolDia;
+		case PNxtDia:		return &values.nxtDia;
+		case PNxtSearch:	return &values.nxtSearch;
+		case PNxtDepth:		return &values.nxtDepth;
 		default:			return nullptr;
 		}
 	}
@@ -161,11 +183,15 @@ namespace
 		{
 			tileText[id].copy(WcsNames[values.storeTo]);
 		}
+		else if (id == PNxtMore)
+		{
+			tileText[id].copy("CYCLES");
+		}
 		else
 		{
 			tileText[id].printf("%.3f", (double)*ValueOf(id));
 		}
-		for (size_t m = 0; m < 3; ++m)
+		for (size_t m = 0; m < NumModes; ++m)
 		{
 			for (size_t k = 0; k < modeTileCount[m]; ++k)
 			{
@@ -179,16 +205,16 @@ namespace
 
 	void AddModeTile(size_t m, PixelNumber y, PixelNumber x, PixelNumber w, PixelNumber h, const char *label, ParamId id, bool stacked)
 	{
-		CncValueTile * const t = new CncValueTile(y, x, w, h, label, stacked, id == PStoreTo, evCncProbeParam, id);
+		CncValueTile * const t = new CncValueTile(y, x, w, h, label, stacked, id == PStoreTo || id == PNxtMore, evCncProbeParam, id);
 		mgr.AddField(t);
 		modeTiles[m][modeTileCount[m]++] = { t, id };
 	}
 
 	void ShowModeLayout()
 	{
-		static const char * const modeNames[3] = { "AUTO", "SEMI-AUTO", "MANUAL" };
+		static const char * const modeNames[NumModes] = { "AUTO", "SEMI-AUTO", "MANUAL", "NXT" };
 		modeLabel->SetValue(modeNames[(int)mode], true);
-		for (size_t m = 0; m < 3; ++m)					// hide the other layouts first, then show this one
+		for (size_t m = 0; m < NumModes; ++m)					// hide the other layouts first, then show this one
 		{
 			if (m != (size_t)mode)
 			{
@@ -265,6 +291,13 @@ namespace
 		OpenNumpad("STOCK Y", values.stockY, 1.0f, 2000.0f, StockYEntered, 0);	// then the Y size
 	}
 
+	bool StoreToAllowed(size_t choice)
+	{
+		return mode != CncProbe::Mode::Nxt || choice < NxtMaxWcs;
+	}
+
+	void OpenMore();
+
 	void StoreToChosen(int param, size_t choice)
 	{
 		UNUSED(param);
@@ -284,7 +317,11 @@ namespace
 		case PZDepth:		OpenNumpad("Z DEPTH", values.zDepth, 0.1f, 50.0f, ParamEntered, id); break;
 		case PToolDia:		OpenNumpad("TOOL \xC3\x98", values.toolDia, 0.1f, 50.0f, ParamEntered, id); break;
 		case PStock:		OpenNumpad("STOCK X", values.stockX, 1.0f, 2000.0f, StockXEntered, 0); break;
-		case PStoreTo:		CncPopup::Choose("STORE TO", WcsNames, NumWcs, values.storeTo, nullptr, StoreToChosen, 0); break;
+		case PStoreTo:		CncPopup::Choose("STORE TO", WcsNames, NumWcs, values.storeTo, StoreToAllowed, StoreToChosen, 0); break;
+		case PNxtDia:		OpenNumpad("DIAM \xC3\x98", values.nxtDia, 0.5f, 500.0f, ParamEntered, id); break;
+		case PNxtSearch:	OpenNumpad("SEARCH", values.nxtSearch, 0.5f, 200.0f, ParamEntered, id); break;
+		case PNxtDepth:		OpenNumpad("DEPTH", values.nxtDepth, 0.1f, 50.0f, ParamEntered, id); break;
+		case PNxtMore:		OpenMore(); break;
 		default:			break;
 		}
 	}
@@ -546,6 +583,189 @@ namespace
 		autoTargetText->SetValue(autoTarget.c_str(), true);
 	}
 
+	// ======================================================================
+	// NXT: MillenniumOS NeXT's cycles
+	// ======================================================================
+
+	// Refused like the probe macros (job, not idle, not homed, probe triggered); the cycles also need
+	// NeXT's touch probe tool in the spindle and a work offset NeXT can write (G54 .. G58)
+	bool RefuseProbing(bool cycle)
+	{
+		if (jobActive)
+		{
+			Refuse(CNC_LOCKED_JOB_ACTIVE);
+			return true;
+		}
+		if (GetStatus() != OM::PrinterStatus::idle)
+		{
+			Refuse("Wait until the machine is idle.");	// e.g. a probe macro still running
+			return true;
+		}
+		if (CncControl::RefuseUnhomed())
+		{
+			return true;
+		}
+		if (!cycle)
+		{
+			return false;
+		}
+		if (haveProbeValue && probeClosed)
+		{
+			Refuse("Probe is closed (triggered).\nCheck the probe and its wiring.");
+			return true;
+		}
+		const int probeTool = CncSettings::NxtProbeTool();
+		if (probeTool < 0 || CncTools::ActiveTool() != probeTool)
+		{
+			String<48> msg;
+			msg.printf((probeTool < 0) ? "NeXT has no touch probe tool." : "Load the touch probe first\n(T%d).", probeTool);
+			Refuse(msg.c_str());
+			return true;
+		}
+		if (values.storeTo >= NxtMaxWcs)
+		{
+			Refuse("NXT saves to G54 ... G58.");
+			return true;
+		}
+		return false;
+	}
+
+	unsigned int NxtWcs() { return values.storeTo + 1u; }		// U1 = G54
+
+	// Corners, edges, BORE, BOSS, Z TOP (the centre asks about the skew first)
+	void SendNxtCycle(CncOrigin o, bool inside)
+	{
+		const unsigned int u = NxtWcs();
+		const float d = values.nxtSearch, depth = values.nxtDepth;
+		switch (o)
+		{
+		case CncOrigin::TL: case CncOrigin::TR: case CncOrigin::BL: case CncOrigin::BR:
+			{
+				// The probe moves toward the stock from outside (G6508), or toward the walls from inside (G6509)
+				const float dir = inside ? 1.0f : -1.0f;
+				const float sx = (o == CncOrigin::TL || o == CncOrigin::BL) ? -1.0f : 1.0f;
+				const float sy = (o == CncOrigin::TL || o == CncOrigin::TR) ? 1.0f : -1.0f;
+				SerialIo::Sendf("M5000\nG650%c U%u L%.3f X{global.nxtAbsPos[0]%+.3f} Y{global.nxtAbsPos[1]%+.3f} Q2\n",
+								inside ? '9' : '8', u, (double)depth, (double)(dir * sx * d), (double)(dir * sy * d));
+			}
+			break;
+		case CncOrigin::ML: case CncOrigin::MR: case CncOrigin::TC: case CncOrigin::BC:
+			{
+				// Outside: toward the stock (left edge: +X ...); inside a pocket: toward that wall
+				const bool xEdge = (o == CncOrigin::ML || o == CncOrigin::MR);
+				float s = (o == CncOrigin::ML || o == CncOrigin::BC) ? 1.0f : -1.0f;
+				if (inside)
+				{
+					s = -s;
+				}
+				SerialIo::Sendf("M5000 P1 I%u\nG6510 U%u %c{global.nxtAbsPos%+.3f}\n",
+								xEdge ? 0u : 1u, u, xEdge ? 'X' : 'Y', (double)(s * d));
+			}
+			break;
+		case CncOrigin::Bore:
+		case CncOrigin::Boss:
+			SerialIo::Sendf("G650%c U%u D%.3f L%.3f Q2\n", (o == CncOrigin::Bore) ? '0' : '1', u, (double)values.nxtDia, (double)depth);
+			break;
+		case CncOrigin::ZTop:
+			SerialIo::Sendf("M5000 P1 I2\nG6510 U%u Z{global.nxtAbsPos%+.3f}\n", u, (double)(-d));
+			break;
+		default:
+			break;
+		}
+	}
+
+	// Centre: rectangle block (OUTSIDE) or pocket (INSIDE); the skew is applied (G68) or skipped
+	void NxtRectAnswer(int inside, const uint16_t selected[])
+	{
+		if (RefuseProbing(true))
+		{
+			return;
+		}
+		SerialIo::Sendf("G650%c U%u W%.3f H%.3f L%.3f Q%u\n", inside ? '2' : '3', NxtWcs(), (double)values.stockX,
+						(double)values.stockY, (double)values.nxtDepth, (selected[0] & 1u) ? 1u : 2u);
+	}
+
+	// MORE: the cycles without a picker origin, and CALIBRATE
+	const char * const MoreLabels[] = { "WEB X", "WEB Y", "POCKET X", "POCKET Y", "VISE CORNER", "CALIBRATE" };
+	constexpr size_t MoreCalibrate = 5;
+	const char * const CalLabels[] = { "DATUM SETUP", "PROBE REPEAT", "SETTER REPEAT", "ROTARY FLAT", "ROTARY CENTRE", "ROTARY Y0" };
+	constexpr size_t CalCycleBase = 10;					// Confirm param: MORE cycle n, or CalCycleBase + calibration n
+
+	bool CalAllowed(size_t c)
+	{
+		switch (c)
+		{
+		case 1:		return CncSettings::NxtTouchProbe();
+		case 2:		return CncSettings::NxtToolSetter();
+		case 3:
+		case 4:
+		case 5:		return CncSettings::NxtFourthAxis() && numAxes >= 4;
+		default:	return true;
+		}
+	}
+
+	void RunMore(int item)
+	{
+		if (RefuseProbing(item < (int)CalCycleBase))
+		{
+			return;
+		}
+		const unsigned int u = NxtWcs();
+		const float depth = values.nxtDepth;
+		switch (item)
+		{
+		case 0: case 1:		SerialIo::Sendf("G6504 U%u N%d W%.3f L%.3f Q2\n", u, item, (double)(item ? values.stockY : values.stockX), (double)depth); break;
+		case 2: case 3:		SerialIo::Sendf("G6505 U%u N%d W%.3f L%.3f Q2\n", u, item - 2, (double)((item == 3) ? values.stockY : values.stockX), (double)depth); break;
+		case 4:				SerialIo::Sendf("G6520 U%u L%.3f Q2\n", u, (double)depth); break;
+		case CalCycleBase + 0:	SerialIo::Sendf("M5016\n"); break;
+		case CalCycleBase + 1:	SerialIo::Sendf("M6523 B0 C10\n"); break;
+		case CalCycleBase + 2:	SerialIo::Sendf("M6523 B1 C10\n"); break;
+		case CalCycleBase + 3:	SerialIo::Sendf("M4912\n"); break;
+		case CalCycleBase + 4:	SerialIo::Sendf("M4910\n"); break;
+		case CalCycleBase + 5:	SerialIo::Sendf("M4807 W%u\n", 54u + values.storeTo); break;
+		default:			break;
+		}
+	}
+
+	void AskMore(size_t item)
+	{
+		static String<40> line1;
+		const char *title;
+		const char *line2;
+		if (item >= CalCycleBase)
+		{
+			title = CalLabels[item - CalCycleBase];
+			line1.printf("Run %s?", title);
+			line2 = "NeXT asks what it needs.";
+		}
+		else
+		{
+			title = MoreLabels[item];
+			line1.printf("Run %s, result to %s?", title, WcsNames[values.storeTo]);
+			line2 = (item < 4) ? "Width: STOCK X / Y, DEPTH." : "Depth: DEPTH.";
+		}
+		CncPopup::Confirm(title, line1.c_str(), line2, nullptr, nullptr, RunMore, (int)item);
+	}
+
+	void CalChosen(int, size_t choice) { AskMore(CalCycleBase + choice); }
+
+	void MoreChosen(int, size_t choice)
+	{
+		if (choice == MoreCalibrate)
+		{
+			CncPopup::Choose("CALIBRATE", CalLabels, ARRAY_SIZE(CalLabels), 0, CalAllowed, CalChosen, 0);
+		}
+		else
+		{
+			AskMore(choice);
+		}
+	}
+
+	void OpenMore()
+	{
+		CncPopup::Choose("NXT CYCLES", MoreLabels, ARRAY_SIZE(MoreLabels), 0, nullptr, MoreChosen, 0);
+	}
+
 	void CloseAll()
 	{
 		if (mgr.IsPopupActive(autoPopup) || mgr.IsPopupActive(jogPopup))
@@ -602,6 +822,13 @@ namespace CncProbe
 			{
 				AddModeTile(2, GridY + k * (RowTileH + RowTileGap), ParX, ParW, RowTileH, manLabels[k], manIds[k], false);
 			}
+			static const char * const nxtLabels[6] = { "DIAM \xC3\x98", "STOCK", "SEARCH", "DEPTH", "SAVE TO", "MORE" };
+			static const ParamId nxtIds[6] = { PNxtDia, PStock, PNxtSearch, PNxtDepth, PStoreTo, PNxtMore };
+			for (size_t k = 0; k < 6; ++k)
+			{
+				AddModeTile(3, GridY + (k / 2) * (AutoTileH + TileGap), ParX + (k % 2) * (AutoTileW + TileGap),
+							AutoTileW, AutoTileH, nxtLabels[k], nxtIds[k], true);
+			}
 		}
 
 		// Bottom row: OUTSIDE | INSIDE under ORIGIN, PROBE (or START in manual mode) under MODE
@@ -654,6 +881,24 @@ namespace CncProbe
 			return true;
 
 		case evCncProbeRun:
+			if (mode == Mode::Nxt)
+			{
+				if (!RefuseProbing(true))
+				{
+					const bool inside = (origin < CncOrigin::Bore) && InsideNow();
+					if (origin == CncOrigin::MC)
+					{
+						static const char * const answers[2] = { "APPLY", "SKIP" };
+						CncPopup::FormQuestion(inside ? "RECT POCKET" : "RECT BLOCK", "SKEW: APPLY G68?", answers, 2,
+												NxtRectAnswer, inside ? 1 : 0);
+					}
+					else
+					{
+						SendNxtCycle(origin, inside);
+					}
+				}
+				return true;
+			}
 			{
 				if (jobActive)
 				{

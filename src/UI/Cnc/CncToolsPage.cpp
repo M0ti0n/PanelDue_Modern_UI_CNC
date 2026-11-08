@@ -19,6 +19,8 @@
  * LOAD     no tool in the spindle (T-): "Is T# in the spindle?"  YES = T# P0 (RRF only notes
  *          it, nothing moves; also written to sys/cnc-lasttool.g), NO = T# (tool change).
  *          Another tool loaded: tool change confirmation, then T# (runs the tool change macros).
+ * NXT      (PROBE MODE = NXT, NeXT loaded): LOAD is always the tool change (T#: NeXT asks for the tool and
+ *          measures it; T# P0 would skip its macros), MEASURE sends G37 (NeXT's tool setter, not the touch probe).
  * MEASURE  measures the loaded tool on the tool setter: M98 P"0:/sys/toolchange/measure_tool.g" K#;
  *          only for the loaded tool (the one in the spindle); confirmed. The macro saves (M500 P10).
  * SET Z    standard numpad for the selected tool's Z offset: G10 P# Z..., then M500 P10.
@@ -310,6 +312,22 @@ namespace
 	{
 		static String<16> title;
 		title.printf("LOAD T%d", selectedTool);
+		if (!IsTool(activeTool) && CncSettings::NxtActive())
+		{
+			// NXT: always the real tool change, so NeXT's tpre / tpost measure the tool
+			String<24> line1;
+			line1.printf("Load T%d?", selectedTool);
+			const char *name = Tool(selectedTool).name.c_str();
+			if (name[0] != 0)
+			{
+				CncPopup::Confirm(title.c_str(), line1.c_str(), name, "NXT asks for the tool", "and measures it.", DoLoad, selectedTool);
+			}
+			else
+			{
+				CncPopup::Confirm(title.c_str(), line1.c_str(), "NXT asks for the tool", "and measures it.", nullptr, DoLoad, selectedTool);
+			}
+			return;
+		}
 		if (!IsTool(activeTool))
 		{
 			static String<28> question;
@@ -340,7 +358,14 @@ namespace
 			Refuse(jobActive ? CNC_LOCKED_JOB_ACTIVE : "The loaded tool changed. Try again.");
 			return;
 		}
-		SerialIo::Sendf("M98 P\"0:/sys/toolchange/measure_tool.g\" K%d\n", tool);
+		if (CncSettings::NxtActive())
+		{
+			SerialIo::Sendf("G37\n");						// NeXT's tool length probe
+		}
+		else
+		{
+			SerialIo::Sendf("M98 P\"0:/sys/toolchange/measure_tool.g\" K%d\n", tool);
+		}
 	}
 
 	void AskMeasure()
@@ -530,9 +555,14 @@ namespace CncTools
 				Refuse("No tool is loaded.\nLOAD a tool first.");
 				return true;
 			}
-			if (!CncSettings::ToolSetter())
+			if (CncSettings::NxtActive() ? !CncSettings::NxtToolSetter() : !CncSettings::ToolSetter())
 			{
-				Refuse("No tool setter.\nTOOL SETTER is off in SETTINGS.");
+				Refuse(CncSettings::NxtActive() ? "No tool setter.\nThe toolsetter is off in NXT." : "No tool setter.\nTOOL SETTER is off in SETTINGS.");
+				return true;
+			}
+			if (CncSettings::NxtActive() && activeTool == CncSettings::NxtProbeTool())
+			{
+				Refuse("The touch probe is not\nmeasured on the tool setter.");
 				return true;
 			}
 			if (selectedTool != activeTool)
@@ -648,6 +678,11 @@ namespace CncTools
 				UpdateRows();
 			}
 		}
+	}
+
+	int ActiveTool()
+	{
+		return activeTool;
 	}
 
 	void SetActiveTool(int tool)
