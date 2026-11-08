@@ -217,6 +217,7 @@ For machines running [MillenniumOS NeXT](https://github.com/MillenniumMachines/m
 Choose **NXT** in SYSTEM → SETTINGS → PROBE MODE. The choice is only available while the machine reports NeXT as loaded (`global.nxtLoaded`); otherwise it is greyed and the PROBE page works in AUTO. The panel only sends NeXT's commands: NeXT does the probing, shows its own messages and writes the work offset itself. The `probe_auto.g` / `probe_semi.g` / `probe_manual.g` macros are not used in this mode.
 
 ![PROBE in NXT mode](docs/screenshots/pd_cnc_probe_nxt_13m.png)
+![PROBE in NXT mode](docs/screenshots/pd_nxt_popups.png)
 
 The mode label at the top right reads **NXT**. The origin picker and the **OUTSIDE | INSIDE** switch work as in the other modes; only the tiles change.
 
