@@ -241,7 +241,8 @@ Example: top-left corner, outside, SAVE TO G54:
 - **DEPTH** — how far the probe goes down beside / into the part.
 - **SAVE TO** — **G54 … G58**. NeXT keeps 5 result rows, so G59 is refused in this mode.
 - **MORE** — the cycles that have no place in the picker, and calibration:
-  - **WEB X / WEB Y** (`G6504`), **POCKET X / POCKET Y** (`G6505`), **VISE CORNER** (`G6520`)
+  - **WEB X / WEB Y** (`G6504`), **POCKET X / POCKET Y** (`G6505`), **VISE** (vise corner, `G6520`)
+  - **ROTATION** (`G6506`) — measures the skew of a straight edge: pick that edge in the origin picker (top, bottom, left or right) and OUTSIDE / INSIDE, start with the probe above the middle of the edge. The two touches are half of STOCK apart along the edge (STOCK X for top / bottom, STOCK Y for left / right), SEARCH is how far beside the edge they start, and the panel asks first: **APPLY** (G68) or **SKIP**.
   - **CALIBRATE**: **DATUM SETUP** (`M5016`), **PROBE REPEAT** (`M6523 B0`), **SETTER REPEAT** (`M6523 B1`), and with the MOS Fourth Axis macros and an A axis **ROTARY FLAT** (`M4912`), **ROTARY CENTRE** (`M4910`), **ROTARY Y0** (`M4807`). Items for features NeXT does not have are greyed.
 
 Clearance, overtravel and the number of samples are NeXT's own defaults.
@@ -250,7 +251,7 @@ Clearance, overtravel and the number of samples are NeXT's own defaults.
 
 - Shows NeXT's touch probe (`global.nxtTouchProbeID`) instead of K0: green ring = open, red disc = triggered.
 - Refused while a job runs, when the machine is not idle or not homed, when the probe is triggered, and while NeXT's touch probe tool (`global.nxtProbeToolID`, usually T49) is not loaded: load it on WCS → TOOLS first.
-- **Skew (G68):** the panel cannot answer NeXT's choice questions (M291 S4), so the cycles are sent with `Q2` (no rotation applied). The rectangle asks first: **APPLY** (`Q1`, NeXT applies G68) or **SKIP** (`Q2`).
+- **Skew (G68):** the panel cannot answer NeXT's choice questions (M291 S4), so the cycles are sent with `Q2` (no rotation applied). The rectangle and ROTATION ask first: **APPLY** (`Q1`, NeXT applies G68) or **SKIP** (`Q2`).
 - **Edges** probe at the probe's current height: lower it beside the edge first.
 
 ### WCS → TOOLS in NXT mode
@@ -629,17 +630,17 @@ v3-7.0c
 | PanelDue model | Download |
 | --- | --- |
 
-## CNC Firmware Downloads — RC4
+## CNC Firmware Downloads — RC2
 
-- [PanelDue 5.0i RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc4.bin)
+- [PanelDue 5.0i RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc3-3.bin)
 
-- [PanelDue 7.0i RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc4.bin)
+- [PanelDue 7.0i RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_7.0-i-rc3-3.bin)
 
-- [PanelDue v3 5.0 RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc4.bin)
+- [PanelDue v3 5.0 RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-5.0-rc3-3.bin)
 
-- [PanelDue v3 7.0C RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc4.bin)
+- [PanelDue v3 7.0C RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-C-rc3-3.bin)
 
-- [PanelDue v3 7.0 RC4](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc4.bin)
+- [PanelDue v3 7.0 RC3-3](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_v3-7.0-rc3-3.bin)
 
 
 IF links dont work latest builds are stored in "latest version compiled"  folder

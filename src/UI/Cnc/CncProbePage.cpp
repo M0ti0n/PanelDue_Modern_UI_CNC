@@ -36,7 +36,9 @@
  *   Edge       M5000 P1 I<axis> + G6510 X|Y{global.nxtAbsPos +- SEARCH}  (at the current height)
  *   Centre     G6503 (OUTSIDE, block) / G6502 (INSIDE, pocket) W<stock X> H<stock Y> L<depth> Q1|Q2
  *   BORE/BOSS  G6500 / G6501 D<diameter> L<depth>        Z TOP  M5000 P1 I2 + G6510 Z{global.nxtAbsPos - SEARCH}
- *   MORE       WEB X/Y (G6504), POCKET X/Y (G6505, width = STOCK X / Y), VISE CORNER (G6520) and CALIBRATE:
+ *   MORE       WEB X/Y (G6504), POCKET X/Y (G6505, width = STOCK X / Y), VISE CORNER (G6520), ROTATION
+ *              (G6506 on the picked edge: two touches half of STOCK apart, SEARCH = overtravel, asks APPLY /
+ *              SKIP G68 first) and CALIBRATE:
  *              DATUM SETUP M5016, PROBE / SETTER REPEAT M6523 B0 / B1 C10, ROTARY FLAT M4912,
  *              ROTARY CENTRE M4910, ROTARY Y0 M4807 W<54..58> (rotary items: MOS Fourth Axis macros + A axis)
  * The cycles are refused unless NeXT's touch probe tool (global.nxtProbeToolID) is loaded. The PROBE
@@ -686,8 +688,30 @@ namespace
 	}
 
 	// MORE: the cycles without a picker origin, and CALIBRATE
-	const char * const MoreLabels[] = { "WEB X", "WEB Y", "POCKET X", "POCKET Y", "VISE CORNER", "CALIBRATE" };
-	constexpr size_t MoreCalibrate = 5;
+	// 3 per row, 130 px each: "VISE CORNER" (137 px) would be cut, so the list says VISE (the question its full name)
+	const char * const MoreLabels[] = { "WEB X", "WEB Y", "POCKET X", "POCKET Y", "VISE", "ROTATION", "CALIBRATE" };
+	constexpr size_t MoreRotation = 5, MoreCalibrate = 6;
+
+	// ROTATION: the skew of the picked edge (G6506). The probe starts above the middle of the edge; the two
+	// touches are half of STOCK apart along it, SEARCH is how far beside the edge they start (overtravel).
+	// N0: an edge along X (TOP / BOTTOM, probing in Y), N1: along Y (LEFT / RIGHT). D1: from the + side.
+	void NxtRotationAnswer(int, const uint16_t selected[])
+	{
+		if (RefuseProbing(true))
+		{
+			return;
+		}
+		const bool alongX = (origin == CncOrigin::TC || origin == CncOrigin::BC);
+		// From outside the stock: TOP and RIGHT are approached from the + side; inside a pocket the other way
+		bool plusSide = (origin == CncOrigin::TC || origin == CncOrigin::MR);
+		if (InsideNow())
+		{
+			plusSide = !plusSide;
+		}
+		SerialIo::Sendf("G6506 U%u N%u D%u S%.3f L%.3f O%.3f Q%u\n", NxtWcs(), alongX ? 0u : 1u, plusSide ? 1u : 0u,
+						(double)(0.5f * (alongX ? values.stockX : values.stockY)), (double)values.nxtDepth,
+						(double)values.nxtSearch, (selected[0] & 1u) ? 1u : 2u);
+	}
 	const char * const CalLabels[] = { "DATUM SETUP", "PROBE REPEAT", "SETTER REPEAT", "ROTARY FLAT", "ROTARY CENTRE", "ROTARY Y0" };
 	constexpr size_t CalCycleBase = 10;					// Confirm param: MORE cycle n, or CalCycleBase + calibration n
 
@@ -740,7 +764,7 @@ namespace
 		}
 		else
 		{
-			title = MoreLabels[item];
+			title = (item == 4) ? "VISE CORNER" : MoreLabels[item];
 			line1.printf("Run %s, result to %s?", title, WcsNames[values.storeTo]);
 			line2 = (item < 4) ? "Width: STOCK X / Y, DEPTH." : "Depth: DEPTH.";
 		}
@@ -753,7 +777,19 @@ namespace
 	{
 		if (choice == MoreCalibrate)
 		{
-			CncPopup::Choose("CALIBRATE", CalLabels, ARRAY_SIZE(CalLabels), 0, CalAllowed, CalChosen, 0);
+			CncPopup::Choose("CALIBRATE", CalLabels, ARRAY_SIZE(CalLabels), 0, CalAllowed, CalChosen, 0, false, 2);	// 2 per row: up to 175 px
+		}
+		else if (choice == MoreRotation)
+		{
+			if (origin != CncOrigin::TC && origin != CncOrigin::BC && origin != CncOrigin::ML && origin != CncOrigin::MR)
+			{
+				Refuse("Pick the edge first\n(top, bottom, left or right).");
+			}
+			else if (!RefuseProbing(true))
+			{
+				static const char * const answers[2] = { "APPLY", "SKIP" };
+				CncPopup::FormQuestion("ROTATION", "SKEW: APPLY G68?", answers, 2, NxtRotationAnswer, 0);
+			}
 		}
 		else
 		{

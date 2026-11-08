@@ -833,7 +833,7 @@ namespace
 		switch (item)
 		{
 		case MProbeMode:
-			CncPopup::Choose("PROBE MODE", ProbeModeLabels, ARRAY_SIZE(ProbeModeLabels), machine.probeMode, ProbeModeAllowed, ProbeModeChosen, 0);
+			CncPopup::Choose("PROBE MODE", ProbeModeLabels, ARRAY_SIZE(ProbeModeLabels), machine.probeMode, ProbeModeAllowed, ProbeModeChosen, 0, false, 2);	// 2 x 2: SEMI-AUTO (110 px) does not fit a 4-in-a-row choice (95 px)
 			break;
 
 		case MToolHolder:
