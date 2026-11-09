@@ -41,6 +41,7 @@
 #include "Hardware/Reset.hpp"
 #include "FlashData.hpp"
 #include "PanelDue.hpp"
+#include "Version.hpp"
 #include <General/String.h>
 #include <General/SafeVsnprintf.h>
 #include "Library/Misc.hpp"
@@ -56,6 +57,7 @@ namespace
 	// Printer UI events the CNC UI does not create otherwise (event_t is full), routed by page
 	constexpr Event evCncMachineSetting = evSettingsHeaterCombineOpen;	// page 2 tile, iParam = MachineItem
 	constexpr Event evCncSettingsPage = evSettingsVolumeSelect;			// page arrows, iParam -1 / +1
+	constexpr Event evCncAbout = evSettingsHeaterCombineConfirm;		// page 1 ABOUT tile
 
 	const Colour ButtonText = UTFT::fromRGB(36, 36, 36);
 
@@ -71,6 +73,7 @@ namespace
 		{ evSettingsAccentOpen, evSettingsBrightnessOpen, evSettingsVolumeOpen, evSettingsInfoTimeoutOpen, evSettingsAlwaysDimToggle,
 		  evSettingsTouchOpen, evInvertX, evInvertY, evSettingsBaudOpen };
 	constexpr unsigned int RamTile = NumPanelTiles;			// tile 9: RAM monitor
+	constexpr unsigned int AboutTile = RamTile + 1;			// tile 10: ABOUT (versions, NeXT, machine settings)
 
 	ModernTextButton *dimmingTile;
 	StaticTextField *ramField;
@@ -578,10 +581,25 @@ namespace
 		FactoryReset();
 	}
 
+	// ABOUT: what runs on the panel and what it knows of the machine (a missing NeXT or settings shows here)
+	void ShowAbout()
+	{
+		static String<200> about;
+		about.printf("CNC UI %s (mill)\nPanel firmware %s\nMachine settings: %s\nMillenniumOS NeXT: %s",
+						VERSION_CNC, VERSION_TEXT,
+						!Connected() ? "-" : (globalsKnown ? "READ" : "NOT READ"),
+						!Connected() ? "-" : (nxt.loaded ? "LOADED" : "NOT FOUND"));
+		CncPopup::Info("ABOUT", about.c_str());
+	}
+
 	bool PanelTouch(Event ev)
 	{
 		switch (ev)
 		{
+		case evCncAbout:
+			ShowAbout();
+			return true;
+
 		case evSettingsAccentOpen:
 			if (RefuseWhileWriting())
 			{
@@ -952,6 +970,7 @@ namespace CncSettings
 		ramField = new StaticTextField(TileY(RamTile) + (TileH - 21) / 2, TileX(RamTile) + 4, ColW - 8, TextAlignment::Centre, "");
 		mgr.AddField(ramField);
 		AddCard(TileY(RamTile), TileX(RamTile), ColW, TileH);
+		AddTile(AboutTile, "ABOUT", evCncAbout, 0);
 		pageRoots[0] = mgr.GetRoot();
 
 		// Page 2: CUSTOMIZATION (machine)
@@ -1045,6 +1064,7 @@ namespace CncSettings
 		case evInvertY:
 		case evSettingsBaudOpen:
 		case evSettingsFactoryResetOpen:
+		case evCncAbout:
 			return true;								// popups / toggles: no pressed look to undo
 
 		default:

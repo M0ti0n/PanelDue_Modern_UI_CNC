@@ -9,6 +9,7 @@
 #define SRC_VERSION_HPP_
 
 #define VERSION_MAIN		"3.7.0"
+#define VERSION_CNC			"rc4-2"		// CNC UI release (SYSTEM > SETTINGS > ABOUT)
 
 #ifdef SUPPORT_ENCODER
 # define VERSION_ENCODER	"+enc"

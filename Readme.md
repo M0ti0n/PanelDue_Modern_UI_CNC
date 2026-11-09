@@ -468,6 +468,7 @@ Settings are stored in PanelDue's persistent memory so they survive normal resta
 - **INVERT DISPLAY**
 - **BAUD**
 - **FACTORY RESET**
+- **ABOUT**: the CNC UI version (e.g. rc4-2), the panel firmware and display type, and whether the panel has read the machine settings and found MillenniumOS NeXT
 
 The current IP address and free-memory information are also displayed here.
 
