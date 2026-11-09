@@ -631,7 +631,7 @@ v3-7.0c
 | PanelDue model | Download |
 | --- | --- |
 
-## CNC Firmware Downloads — RC2
+## CNC Firmware Downloads — RC4
 
 - [PanelDue 5.0i RC4-2](https://raw.githubusercontent.com/M0ti0n/PanelDue_Modern_UI_CNC/main/last%20versions%20compiled/paneldue_CNC_mill_5.0-i-rc4-2.bin)
 
