@@ -1186,6 +1186,17 @@ namespace CncSettings
 		return machine.toolSetter;
 	}
 
+	// Read one by one (M409 K"global.<name>"): the whole global object, with MillenniumOS NeXT's ~190 globals,
+	// is too big for the machine's reply buffers ({"err":-1}), so none of it would arrive
+	const char *GlobalName(size_t i)
+	{
+		static const char * const NxtNames[] =
+		{
+			"nxtLoaded", "nxtProbeToolID", "nxtTouchProbeID", "nxtFeatureTouchProbe", "nxtFeatureToolSetter", "nxtFeatureFourthAxis"
+		};
+		return (i < NumGlobals) ? GlobalNames[i] : (i < NumGlobals + ARRAY_SIZE(NxtNames)) ? NxtNames[i - NumGlobals] : nullptr;
+	}
+
 	bool NxtActive() { return nxt.loaded && machine.probeMode == NxtModeIndex; }
 	int NxtProbeTool() { return nxt.probeTool; }
 	bool NxtToolSetter() { return nxt.toolSetter; }

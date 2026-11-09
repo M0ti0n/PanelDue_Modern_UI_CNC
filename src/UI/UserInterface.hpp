@@ -52,7 +52,8 @@ namespace UI
 	extern void SetNextTool(int32_t tool);				// state.nextTool, -1 = none
 	extern void SetVolumeMounted(size_t volume, bool mounted);	// volumes[].mounted (JOB LIST SD tile)
 	extern void UpdateCncGlobal(const char *name, const char *data);	// global.cnc* (SYSTEM > SETTINGS)
-	extern void CncGlobalsArriving();					// start of an M409 K"global" reply
+	extern void CncGlobalsArriving();					// start of the globals (one M409 K"global.<name>" each)
+	extern const char *CncGlobalName(size_t i);			// the globals the panel reads, nullptr after the last
 	extern size_t CncProbeIndex();						// sensors.probes[] shown on WCS > PROBE (NeXT's touch probe in NXT mode)
 	extern void CncGlobalsDone(bool complete);			// its end (false: out of buffers)
 	extern void CncTouchSeen(bool repeat);				// every touch, before it is processed

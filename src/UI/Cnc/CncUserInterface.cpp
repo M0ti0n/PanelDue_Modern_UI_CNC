@@ -922,6 +922,7 @@ namespace UI
 	void UpdateIP(const char data[]) { CncSettings::SetIP(data); }
 	void UpdateCncGlobal(const char *name, const char *data) { CncSettings::UpdateGlobal(name, data); }
 	void CncGlobalsArriving() { CncSettings::GlobalsArriving(); }
+	const char *CncGlobalName(size_t i) { return CncSettings::GlobalName(i); }
 	size_t CncProbeIndex() { return CncSettings::ProbeIndex(); }
 	void CncGlobalsDone(bool complete) { CncSettings::GlobalsDone(complete); }
 	// Messages from the machine (M291), shown in the standard popup.

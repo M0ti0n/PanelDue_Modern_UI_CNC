@@ -781,6 +781,12 @@ static struct Seq *FindSeqByKey(const char *key)
 static uint32_t lastGlobalFetch = 0;
 static bool globalDeferred = false;
 static constexpr uint32_t GlobalMinInterval = 5000;
+
+// The globals are read one by one (M409 K"global.<name>"), the names from UI::CncGlobalName(): with MillenniumOS
+// NeXT installed the whole global object is too big for the machine's reply buffers ({"err":-1}). One "global"
+// seq update = one sweep over the names; the settings take the values over at its end.
+static size_t globalSweep = 0;							// index of the name requested next / being answered
+static bool globalSweepChanged = false;					// seqs.global changed during a sweep: sweep again later
 #endif
 
 static void UpdateSeq(const ReceivedDataEvent seqid, int32_t val)
@@ -794,6 +800,11 @@ static void UpdateSeq(const ReceivedDataEvent seqid, int32_t val)
 				dbg("%s %d -> %d\n", seqs[i].key, seqs[i].lastSeq, val);
 				seqs[i].lastSeq = val;
 #if CNC_UI
+				if (seqid == rcvSeqsGlobal && globalSweep != 0)
+				{
+					globalSweepChanged = true;			// in the middle of a sweep: another one after it
+					continue;
+				}
 				if (seqid == rcvSeqsGlobal && seqs[i].state != SeqStateInit)
 				{
 					const uint32_t now = SystemTick::GetTickCount();
@@ -888,6 +899,10 @@ void CncRequestGlobals()
 {
 	lastGlobalFetch = SystemTick::GetTickCount();
 	globalDeferred = false;
+	if (globalSweep != 0)
+	{
+		globalSweepChanged = true;						// the sweep under way may have read older values
+	}
 	for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
 	{
 		if (seqs[i].event == rcvOMKeyGlobal && seqs[i].state == SeqStateOk)
@@ -1396,9 +1411,22 @@ static void EndReceivedMessage()
 	if (currentRespSeq != nullptr)
 	{
 #if CNC_UI
-		if (currentRespSeq->event == rcvOMKeyGlobal)
+		if (currentRespSeq->event == rcvOMKeyGlobal && !outOfBuffers)
 		{
-			UI::CncGlobalsDone(!outOfBuffers);			// SYSTEM > SETTINGS takes the values over
+			// One global answered: on to the next name (asked after the next status poll, so the DRO keeps
+			// moving during a sweep), or the sweep is complete
+			++globalSweep;
+			if (UI::CncGlobalName(globalSweep) == nullptr)
+			{
+				globalSweep = 0;
+				UI::CncGlobalsDone(true);				// SYSTEM > SETTINGS takes the values over
+				if (globalSweepChanged)
+				{
+					globalSweepChanged = false;
+					globalDeferred = true;				// PollDeferredGlobals() starts another sweep
+					lastGlobalFetch = SystemTick::GetTickCount();
+				}
+			}
 		}
 #endif
 		currentRespSeq->state = outOfBuffers ? SeqStateError : SeqStateOk;
@@ -1518,6 +1546,20 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 		// else replace "result" by "key" (do NOT replace anything beyond "result" as there might be an _ecv_array modifier)
 
 		id.Erase(0, 6);
+#if CNC_UI
+		if (currentRespSeq != nullptr && currentRespSeq->event == rcvOMKeyGlobal)
+		{
+			// M409 K"global.<name>": the value itself is the result. null = the machine has no such global.
+			const char * const name = UI::CncGlobalName(globalSweep);
+			if (name == nullptr || id.strlen() != 0 || strcmp(data, "null") == 0)
+			{
+				return;
+			}
+			id.copy("global:");
+			id.cat(name);
+		}
+		else
+#endif
 		if (currentRespSeq != nullptr)
 		{
 			currentResponseType = currentRespSeq->seqid;
@@ -1556,6 +1598,12 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 			{
 				currentRespSeq = currentReqSeq;
 			}
+#if CNC_UI
+			else if (currentReqSeq && currentReqSeq->event == rcvOMKeyGlobal && StringStartsWith(data, "global."))
+			{
+				currentRespSeq = currentReqSeq;			// one global of the sweep (key "global.<name>")
+			}
+#endif
 			else
 			{
 				currentRespSeq = FindSeqByKey(data);
@@ -1581,11 +1629,7 @@ static void ProcessReceivedValue(StringRef id, const char data[], const size_t i
 			case rcvOMKeyTools:
 				lastTool = -1;
 				break;
-#if CNC_UI
-			case rcvOMKeyGlobal:
-				UI::CncGlobalsArriving();			// the machine's settings follow (maybe none)
-				break;
-#endif
+
 			default:
 				break;
 			}
@@ -3406,6 +3450,18 @@ int main(void)
 					if (currentReqSeq != nullptr)
 					{
 						dbg("requesting %s\n", currentReqSeq->key);
+#if CNC_UI
+						if (currentReqSeq->event == rcvOMKeyGlobal)
+						{
+							if (globalSweep == 0)
+							{
+								UI::CncGlobalsArriving();	// a sweep starts: the values follow one by one
+							}
+							const char * const name = UI::CncGlobalName(globalSweep);
+							SerialIo::Sendf("M409 K\"global.%s\" F\"v\"\n", (name != nullptr) ? name : "");
+						}
+						else
+#endif
 						SerialIo::Sendf("M409 K\"%s\" F\"%s\"\n", currentReqSeq->key, currentReqSeq->flags);
 						lastPollTime = SystemTick::GetTickCount();
 					}
@@ -3431,6 +3487,19 @@ int main(void)
 						{
 							SerialIo::Sendf("M409 F\"d99fp\"\n");
 						}
+#if CNC_UI
+						// A globals sweep goes on after each status poll (one name per turn)
+						if (globalSweep != 0)
+						{
+							for (size_t i = 0; i < ARRAY_SIZE(seqs); ++i)
+							{
+								if (seqs[i].event == rcvOMKeyGlobal && seqs[i].state == SeqStateOk)
+								{
+									seqs[i].state = SeqStateUpdate;
+								}
+							}
+						}
+#endif
 						lastPollTime = SystemTick::GetTickCount();
 					}
 				}
